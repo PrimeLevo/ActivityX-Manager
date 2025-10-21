@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Dummy Data - ActivityX</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 10px 10px 0;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button.danger {
+            background: #f44336;
+        }
+        button.danger:hover {
+            background: #da190b;
+        }
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #2196F3;
+        }
+        .success {
+            background: #e8f5e9;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #4CAF50;
+            display: none;
+        }
+        pre {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ActivityX Admin - Dummy Data Generator</h1>
+
+        <div class="info">
+            <strong>📋 Instructions:</strong>
+            <ol>
+                <li>Click "Add Dummy Data" to generate test users with various activity times</li>
+                <li>Close this page and open the ActivityX Admin app</li>
+                <li>Test the sorting functionality with "En Yüksek Aktivite Süresine Göre Sırala"</li>
+            </ol>
+        </div>
+
+        <button onclick="addDummyData()">Add Dummy Data</button>
+        <button onclick="viewData()">View Current Data</button>
+        <button onclick="clearData()" class="danger">Clear All Data</button>
+
+        <div id="success" class="success">
+            ✅ Dummy data added successfully! You can now open the ActivityX Admin app to see the test data.
+        </div>
+
+        <div id="output"></div>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'kta_persisted_users_v1';
+
+        function addDummyData() {
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+            // Get current week boundaries
+            const monday = new Date(today);
+            const dow = today.getDay();
+            const offset = dow === 0 ? 6 : dow - 1;
+            monday.setDate(today.getDate() - offset);
+
+            const dummyUsers = [
+                {
+                    id: 1,
+                    userId: 'user1',
+                    name: 'User@NesimeNacakci',
+                    activeTime: {
+                        hours: 14,
+                        minutes: 1,
+                        seconds: 41,
+                        total: 50501  // ~14 hours total cumulative
+                    },
+                    lastActivity: new Date(now.getTime() - 2 * 60 * 60 * 1000),
+                    batchIds: generateBatchesForWeek(monday, 3600 * 4), // 4 hours this week
+                    apps: [
+                        { name: 'Chrome', usage: 7200 },
+                        { name: 'Excel', usage: 5400 },
+                        { name: 'Desktop', usage: 1800 }
+                    ],
+                    websites: [
+                        { name: 'google.com', url: 'https://google.com', usage: 3600 },
+                        { name: 'outlook.com', url: 'https://outlook.com', usage: 2400 }
+                    ]
+                },
+                {
+                    id: 2,
+                    userId: 'user2',
+                    name: 'Beyza Alaftargil@Beyza...',
+                    activeTime: {
+                        hours: 1044,
+                        minutes: 43,
+                        seconds: 19,
+                        total: 3761399  // ~1044 hours total cumulative
+                    },
+                    lastActivity: new Date(now.getTime() - 5 * 60 * 60 * 1000),
+                    batchIds: generateBatchesForWeek(monday, 3600 * 45), // 45 hours this week
+                    apps: [
+                        { name: 'Chrome', usage: 18000 },
+                        { name: 'Outlook', usage: 15000 },
+                        { name: 'Word', usage: 12000 }
+                    ],
+                    websites: [
+                        { name: 'mail.google.com', url: 'https://mail.google.com', usage: 9000 },
+                        { name: 'teams.microsoft.com', url: 'https://teams.microsoft.com', usage: 7200 }
+                    ]
+                },
+                {
+                    id: 3,
+                    userId: 'user3',
+                    name: 'Funda Arslan@DESKTO...',
+                    activeTime: {
+                        hours: 384,
+                        minutes: 16,
+                        seconds: 22,
+                        total: 1383382  // ~384 hours total cumulative
+                    },
+                    lastActivity: new Date(now.getTime() - 1 * 60 * 60 * 1000),
+                    batchIds: generateBatchesForWeek(monday, 3600 * 35), // 35 hours this week
+                    apps: [
+                        { name: 'Chrome', usage: 15000 },
+                        { name: 'Excel', usage: 12000 },
+                        { name: 'Outlook', usage: 8000 }
+                    ],
+                    websites: [
+                        { name: 'excel.office.com', url: 'https://excel.office.com', usage: 7500 },
+                        { name: 'outlook.office.com', url: 'https://outlook.office.com', usage: 6000 }
+                    ]
+                },
+                {
+                    id: 4,
+                    userId: 'user4',
+                    name: 'İrfan Latif Aral@İLATİFA...',
+                    activeTime: {
+                        hours: 273,
+                        minutes: 51,
+                        seconds: 14,
+                        total: 985874  // ~273 hours total cumulative
+                    },
+                    lastActivity: new Date(now.getTime() - 3 * 60 * 60 * 1000),
+                    batchIds: generateBatchesForWeek(monday, 3600 * 28), // 28 hours this week
+                    apps: [
+                        { name: 'Outlook', usage: 12000 },
+                        { name: 'Excel', usage: 10000 },
+                        { name: 'Desktop', usage: 6000 }
+                    ],
+                    websites: [
+                        { name: 'outlook.com', url: 'https://outlook.com', usage: 6000 },
+                        { name: 'onedrive.com', url: 'https://onedrive.com', usage: 5000 }
+                    ]
+                },
+                {
+                    id: 5,
+                    userId: 'user5',
+                    name: 'Erhan Karamuk@ErhanK...',
+                    activeTime: {
+                        hours: 323,
+                        minutes: 47,
+                        seconds: 41,
+                        total: 1165661  // ~323 hours total cumulative
+                    },
+                    lastActivity: new Date(now.getTime() - 4 * 60 * 60 * 1000),
+                    batchIds: generateBatchesForWeek(monday, 3600 * 22), // 22 hours this week
+                    apps: [
+                        { name: 'Chrome', usage: 11000 },
+                        { name: 'Outlook', usage: 8000 },
+                        { name: 'Excel', usage: 3000 }
+                    ],
+                    websites: [
+                        { name: 'gmail.com', url: 'https://gmail.com', usage: 5500 },
+                        { name: 'drive.google.com', url: 'https://drive.google.com', usage: 4500 }
+                    ]
+                },
+                {
+                    id: 6,
+                    userId: 'user6',
+                    name: 'USER@BUSEALTAY',
+                    activeTime: {
+                        hours: 273,
+                        minutes: 57,
+                        seconds: 50,
+                        total: 986270  // ~273 hours total cumulative
+                    },
+                    lastActivity: new Date(now.getTime() - 6 * 60 * 60 * 1000),
+                    batchIds: generateBatchesForWeek(monday, 3600 * 18), // 18 hours this week
+                    apps: [
+                        { name: 'Desktop', usage: 9000 },
+                        { name: 'Outlook', usage: 6000 },
+                        { name: 'Chrome', usage: 3000 }
+                    ],
+                    websites: [
+                        { name: 'outlook.office.com', url: 'https://outlook.office.com', usage: 4500 },
+                        { name: 'teams.microsoft.com', url: 'https://teams.microsoft.com', usage: 3500 }
+                    ]
+                }
+            ];
+
+            // Save to localStorage
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(dummyUsers));
+
+            document.getElementById('success').style.display = 'block';
+            document.getElementById('output').innerHTML = '<pre>' + JSON.stringify(dummyUsers, null, 2) + '</pre>';
+
+            console.log('Dummy data added successfully!');
+        }
+
+        function generateBatchesForWeek(monday, totalSeconds) {
+            const batches = [];
+            const secondsPerDay = totalSeconds / 5; // Distribute across 5 weekdays
+
+            for (let i = 0; i < 5; i++) {
+                const date = new Date(monday);
+                date.setDate(monday.getDate() + i);
+
+                batches.push({
+                    d: date.toISOString().split('T')[0],
+                    at: Math.floor(secondsPerDay),
+                    spans_midnight: false
+                });
+            }
+
+            return batches;
+        }
+
+        function viewData() {
+            const data = localStorage.getItem(STORAGE_KEY);
+            if (data) {
+                const parsed = JSON.parse(data);
+                document.getElementById('output').innerHTML =
+                    '<h3>Current Data (' + parsed.length + ' users):</h3>' +
+                    '<pre>' + JSON.stringify(parsed, null, 2) + '</pre>';
+            } else {
+                document.getElementById('output').innerHTML =
+                    '<div class="info">No data found in localStorage</div>';
+            }
+        }
+
+        function clearData() {
+            if (confirm('Are you sure you want to clear all data?')) {
+                localStorage.removeItem(STORAGE_KEY);
+                document.getElementById('output').innerHTML =
+                    '<div class="success">All data cleared!</div>';
+                document.getElementById('success').style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>

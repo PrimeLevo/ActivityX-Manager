@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ActivityX</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="header-left">
+                    <h1 class="app-title">
+                        <img src="transparentlogo.png" alt="Logo" class="app-logo">
+                    </h1>
+                    <div class="user-details">
+                        <div class="law-firm-name" id="header-law-firm">Hukuk Bürosu</div>
+                        <div class="user-name" id="header-user-name">Kullanıcı Adı</div>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <div class="profile-menu-container">
+                        <button class="profile-icon-button" id="profile-menu-btn">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                        </button>
+                        <div class="user-dropdown" id="user-dropdown">
+                            <button class="dropdown-item" id="logout-btn">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                                    <path d="M16 17l5-5-5-5"></path>
+                                    <path d="M21 12H9"></path>
+                                </svg>
+                                Çıkış Yap
+                            </button>
+                        </div>
+                    </div>
+                    <button class="update-data-button" id="update-data-btn">
+                        Verileri Güncelle
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+
+            <!-- Charts Section -->
+            <section class="charts-section">
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <h3>Aktivite Genel Bakış</h3>
+                    </div>
+                    <canvas id="activity-chart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <h3>Uygulama Kullanım Dağılımı</h3>
+                    </div>
+                    <canvas id="apps-chart"></canvas>
+                </div>
+            </section>
+
+            <!-- Users Table -->
+            <section class="users-section">
+                <div class="section-header">
+                    <div class="table-controls">
+                        <div class="search-input-wrapper">
+                            <input type="text" id="search-input" placeholder="Kullanıcı ara..." class="search-input">
+                            <button type="button" id="clear-search" class="clear-search-btn" style="display: none;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                            </button>
+                        </div>
+                        <select id="sort-select" class="sort-select">
+                            <option value="name-az">İsme Göre Sırala (A-Z)</option>
+                            <option value="name-za">İsme Göre Sırala (Z-A)</option>
+                            <option value="active-time-desc">En Yüksek Aktivite Süresine Göre Sırala</option>
+                            <option value="active-time-asc">En Düşük Aktivite Süresine Göre Sırala</option>
+                            <option value="last-activity-recent">En Yakın Son Aktivite Tarihine Göre Sırala</option>
+                            <option value="last-activity-oldest">En Uzak Son Aktivite Tarihine Göre Sırala</option>
+                        </select>
+                        <div class="time-period-selector">
+                            <button class="btn btn-secondary" data-period="daily">Bugün</button>
+                            <button class="btn btn-secondary active" data-period="weekly">Haftalık</button>
+                            <button class="btn btn-secondary" data-period="monthly">Aylık</button>
+                            <button class="btn btn-secondary" data-period="annual">Yıllık</button>
+                            <div class="custom-date-wrapper">
+                                <button class="btn btn-secondary" data-period="custom" id="custom-btn">Özel</button>
+                                <div class="custom-date-popup" id="custom-date-selector" style="display: none;">
+                                    <div class="popup-arrow"></div>
+                                    <div class="popup-content">
+                                        <div class="date-range-container">
+                                            <div class="date-row">
+                                                <label for="start-date" class="date-label">Başlangıç</label>
+                                                <input type="date" id="start-date" class="date-input">
+                                                <button class="btn btn-secondary btn-sm" id="cancel-date-range">İptal Et</button>
+                                            </div>
+                                            <div class="date-row">
+                                                <label for="end-date" class="date-label">Bitiş</label>
+                                                <input type="date" id="end-date" class="date-input">
+                                                <button class="btn btn-primary btn-sm" id="apply-date-range">Uygula</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" id="apply-filters-btn">
+                            Temizle
+                        </button>
+                        <button class="btn btn-secondary" id="export-btn">CSV İndir</button>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table class="users-table">
+                        <thead>
+                            <tr>
+                                <th>Kullanıcı Adı</th>
+                                <th>Aktif Süre</th>
+                                <th>En Çok Kullanılan Uygulamalar</th>
+                                <th>En Çok Ziyaret Edilen Web Siteleri</th>
+                                <th>Son Aktivite</th>
+                                <th>İşlemler</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-table-body">
+                            <!-- Users will be populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+
+            </section>
+
+        </main>
+
+        <!-- Logout Confirmation Modal -->
+        <div class="modal" id="logout-modal">
+            <div class="modal-content logout-modal-content">
+                <div class="modal-header">
+                    <h3>Çıkış Yap</h3>
+                </div>
+                <div class="modal-body">
+                    <p>Oturumu kapatmak istediğinize emin misiniz?</p>
+                    <div class="modal-actions">
+                        <button class="btn btn-secondary" id="logout-cancel">İptal Et</button>
+                        <button class="btn btn-primary" id="logout-confirm">Çıkış Yap</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Detail Modal -->
+        <div class="modal" id="user-modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modal-user-name">Kullanıcı Detayları</h3>
+                    <div class="modal-header-buttons">
+                        <button class="btn btn-secondary" id="modal-export-btn">CSV İndir</button>
+                        <button class="modal-close">&times;</button>
+                    </div>
+                </div>
+                <div class="modal-body">
+                    <div class="modal-stats">
+                        <div class="modal-stat">
+                            <label>Aktif Süre:</label>
+                            <span id="modal-active-time"></span>
+                        </div>
+                        <div class="modal-stat">
+                            <label>Tarih Aralığı:</label>
+                            <span id="modal-date-range"></span>
+                        </div>
+                        <div class="modal-stat">
+                            <label>Gün Sayısı:</label>
+                            <span id="modal-day-count"></span>
+                        </div>
+                        <div class="modal-stat">
+                            <label>Ortalama Günlük Aktif Süre:</label>
+                            <span id="modal-daily-average"></span>
+                        </div>
+                    </div>
+
+                    <!-- Activity Timeline (Only visible when day count = 1) -->
+                    <div class="modal-timeline-section" id="modal-timeline-section" style="display: none;">
+                        <h4>Günlük Aktivite Zaman Çizelgesi</h4>
+                        <div class="timeline-container">
+                            <div class="timeline-canvas-wrapper">
+                                <canvas id="timeline-canvas" width="1000" height="60"></canvas>
+                                <div class="timeline-hour-labels">
+                                    <span>00:00</span>
+                                    <span>03:00</span>
+                                    <span>06:00</span>
+                                    <span>09:00</span>
+                                    <span>12:00</span>
+                                    <span>15:00</span>
+                                    <span>18:00</span>
+                                    <span>21:00</span>
+                                    <span>24:00</span>
+                                </div>
+                            </div>
+                            <div class="timeline-legend">
+                                <span class="legend-item">
+                                    <span class="legend-color" style="background: #4A7B93;"></span>
+                                    Aktif
+                                </span>
+                                <span class="legend-item">
+                                    <span class="legend-color" style="background: #f8f9fa; border: 1px solid #999;"></span>
+                                    İnaktif
+                                </span>
+                            </div>
+                        </div>
+                        <!-- Hover Tooltip -->
+                        <div id="timeline-tooltip" class="timeline-tooltip" style="display: none;">
+                            <strong id="tooltip-time-range">00:00 - 00:00</strong>
+                            <div id="tooltip-state">Durum: -</div>
+                            <div id="tooltip-duration">Süre: -</div>
+                        </div>
+                    </div>
+
+                    <!-- Detailed Tables -->
+                    <div class="modal-tables">
+                        <div class="modal-table-container">
+                            <h4>Detaylı Uygulama Kullanımı</h4>
+                            <input type="text" id="modal-apps-search" class="modal-search-input" placeholder="Uygulama ara...">
+                            <div class="table-scroll">
+                                <table class="modal-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Uygulama Adı</th>
+                                            <th>Süre</th>
+                                            <th>Yüzde</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="modal-apps-table"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <div class="modal-table-container">
+                            <h4>Detaylı Web Sitesi Kullanımı</h4>
+                            <input type="text" id="modal-websites-search" class="modal-search-input" placeholder="Web sitesi ara...">
+                            <div class="table-scroll">
+                                <table class="modal-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Web Sitesi</th>
+                                            <th>Süre</th>
+                                            <th>Yüzde</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="modal-websites-table"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-charts">
+                        <div class="modal-chart-container">
+                            <h4>Uygulama Kullanım Dağılımı</h4>
+                            <canvas id="modal-apps-chart"></canvas>
+                        </div>
+                        <div class="modal-chart-container">
+                            <h4>Web Sitesi Kullanım Dağılımı</h4>
+                            <canvas id="modal-websites-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html> 
