@@ -69,8 +69,8 @@
     },
     "publish": {
       "provider": "github",
-      "owner": "PrimeLevo",
-      "repo": "ActivityX"
+      "owner": "mleventw",
+      "repo": "ActivityX-Dashboard"
     }
   },
   "keywords": [
