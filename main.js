@@ -49,6 +49,28 @@ function createWindow() {
   });
 
   // Create application menu
+  const isDev = process.argv.includes('--dev');
+
+  // Build View submenu based on environment
+  const viewSubmenu = [
+    { role: 'reload' },
+    { role: 'forceReload' }
+  ];
+
+  // Only add toggleDevTools in development mode
+  if (isDev) {
+    viewSubmenu.push({ role: 'toggleDevTools' });
+  }
+
+  viewSubmenu.push(
+    { type: 'separator' },
+    { role: 'resetZoom' },
+    { role: 'zoomIn' },
+    { role: 'zoomOut' },
+    { type: 'separator' },
+    { role: 'togglefullscreen' }
+  );
+
   const template = [
     {
       label: 'Dosya',
@@ -72,17 +94,7 @@ function createWindow() {
     },
     {
       label: 'Görünüm',
-      submenu: [
-        { role: 'reload' },
-        { role: 'forceReload' },
-        { role: 'toggleDevTools' },
-        { type: 'separator' },
-        { role: 'resetZoom' },
-        { role: 'zoomIn' },
-        { role: 'zoomOut' },
-        { type: 'separator' },
-        { role: 'togglefullscreen' }
-      ]
+      submenu: viewSubmenu
     },
     {
       label: 'Pencere',

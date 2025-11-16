@@ -191,6 +191,206 @@ function turkishAlert(message) {
     button.focus();
 }
 
+// Turkish Calendar Implementation
+class TurkishCalendar {
+    constructor(elementId, options = {}) {
+        this.element = document.getElementById(elementId);
+        this.options = {
+            onSelect: options.onSelect || (() => {}),
+            minDate: options.minDate || null,
+            maxDate: options.maxDate || null,
+            selectedDate: options.selectedDate || null,
+            rangeStart: options.rangeStart || null,
+            rangeEnd: options.rangeEnd || null,
+            type: options.type || 'single' // 'single', 'range-start', 'range-end'
+        };
+
+        this.currentMonth = new Date().getMonth();
+        this.currentYear = new Date().getFullYear();
+        this.selectedDate = this.options.selectedDate;
+
+        this.turkishMonths = [
+            'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
+            'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'
+        ];
+
+        this.turkishDays = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
+
+        this.render();
+    }
+
+    render() {
+        const today = new Date();
+        const firstDay = new Date(this.currentYear, this.currentMonth, 1);
+        const lastDay = new Date(this.currentYear, this.currentMonth + 1, 0);
+        const prevLastDay = new Date(this.currentYear, this.currentMonth, 0);
+
+        // Adjust for Monday start (0 = Monday, 6 = Sunday)
+        let firstDayOfWeek = firstDay.getDay();
+        firstDayOfWeek = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
+
+        let html = `
+            <div class="calendar-header">
+                <button type="button" class="prev-month" data-action="prev">‹</button>
+                <div class="calendar-month-year">${this.turkishMonths[this.currentMonth]} ${this.currentYear}</div>
+                <button type="button" class="next-month" data-action="next">›</button>
+            </div>
+            <div class="calendar-weekdays">
+                ${this.turkishDays.map(day => `<div class="calendar-weekday">${day}</div>`).join('')}
+            </div>
+            <div class="calendar-days">
+        `;
+
+        // Previous month's days
+        for (let i = firstDayOfWeek - 1; i >= 0; i--) {
+            const day = prevLastDay.getDate() - i;
+            html += `<div class="calendar-day other-month">${day}</div>`;
+        }
+
+        // Current month's days
+        for (let day = 1; day <= lastDay.getDate(); day++) {
+            const date = new Date(this.currentYear, this.currentMonth, day);
+            const dateStr = this.formatDate(date);
+            let classes = ['calendar-day'];
+            let disabled = false;
+
+            // Check if today
+            if (this.isSameDay(date, today)) {
+                classes.push('today');
+            }
+
+            // Check if selected
+            if (this.selectedDate && this.isSameDay(date, this.selectedDate)) {
+                classes.push('selected');
+            }
+
+            // Check if in range
+            if (this.options.rangeStart && this.options.rangeEnd) {
+                if (this.options.type === 'range-start' && this.isSameDay(date, this.options.rangeStart)) {
+                    classes.push('range-start');
+                } else if (this.options.type === 'range-end' && this.isSameDay(date, this.options.rangeEnd)) {
+                    classes.push('range-end');
+                } else if (date > this.options.rangeStart && date < this.options.rangeEnd) {
+                    classes.push('in-range');
+                }
+            }
+
+            // Check min/max dates
+            if (this.options.minDate && date < this.options.minDate) {
+                classes.push('disabled');
+                disabled = true;
+            }
+            if (this.options.maxDate && date > this.options.maxDate) {
+                classes.push('disabled');
+                disabled = true;
+            }
+
+            html += `<div class="${classes.join(' ')}" data-date="${dateStr}" ${disabled ? 'data-disabled="true"' : ''}>${day}</div>`;
+        }
+
+        // Next month's days to fill the grid
+        const totalCells = firstDayOfWeek + lastDay.getDate();
+        const remainingCells = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+        for (let day = 1; day <= remainingCells; day++) {
+            html += `<div class="calendar-day other-month">${day}</div>`;
+        }
+
+        html += '</div>';
+
+        this.element.innerHTML = html;
+        this.attachEventListeners();
+    }
+
+    attachEventListeners() {
+        this.element.querySelector('.prev-month').addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.previousMonth();
+        });
+
+        this.element.querySelector('.next-month').addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.nextMonth();
+        });
+
+        this.element.querySelectorAll('.calendar-day:not(.other-month):not(.disabled)').forEach(day => {
+            day.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const dateStr = day.dataset.date;
+                if (dateStr && !day.dataset.disabled) {
+                    this.selectDate(dateStr);
+                }
+            });
+        });
+    }
+
+    previousMonth() {
+        if (this.currentMonth === 0) {
+            this.currentMonth = 11;
+            this.currentYear--;
+        } else {
+            this.currentMonth--;
+        }
+        this.render();
+    }
+
+    nextMonth() {
+        if (this.currentMonth === 11) {
+            this.currentMonth = 0;
+            this.currentYear++;
+        } else {
+            this.currentMonth++;
+        }
+        this.render();
+    }
+
+    selectDate(dateStr) {
+        this.selectedDate = new Date(dateStr);
+        this.options.onSelect(this.selectedDate);
+        this.render();
+    }
+
+    setSelectedDate(date) {
+        this.selectedDate = date;
+        if (date) {
+            this.currentMonth = date.getMonth();
+            this.currentYear = date.getFullYear();
+        }
+        this.render();
+    }
+
+    setRangeStart(date) {
+        this.options.rangeStart = date;
+        this.render();
+    }
+
+    setRangeEnd(date) {
+        this.options.rangeEnd = date;
+        this.render();
+    }
+
+    isSameDay(date1, date2) {
+        return date1.getDate() === date2.getDate() &&
+               date1.getMonth() === date2.getMonth() &&
+               date1.getFullYear() === date2.getFullYear();
+    }
+
+    formatDate(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    formatDateTurkish(date) {
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}.${month}.${year}`;
+    }
+}
+
 // Global variables
 let users = [];
 // Infinite scroll - no pagination needed
@@ -753,51 +953,50 @@ function setupEventListeners() {
     
     // Custom date range apply button
     document.getElementById('apply-date-range').addEventListener('click', function() {
-        const startDate = document.getElementById('start-date').value;
-        const endDate = document.getElementById('end-date').value;
-
-        if (startDate && endDate) {
-            const start = new Date(startDate + 'T00:00:00'); // Force local timezone
-            const end = new Date(endDate + 'T23:59:59'); // Force local timezone
-            const today = new Date();
-            const oneYearAgo = new Date(today.getTime() - (365 * 24 * 60 * 60 * 1000));
-
-            // Create date-only objects for proper comparison
-            const startDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-            const selectedStart = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-            const selectedEnd = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-
-            // Validate date range (max 1 year, not in future) - compare dates properly
-            if (selectedStart > startDateOnly || selectedEnd > startDateOnly) {
-                turkishAlert('Tarihler gelecekte olamaz.');
-                return;
-            }
-
-            if (start < oneYearAgo) {
-                turkishAlert('Başlangıç tarihi 1 yıldan daha eski olamaz.');
-                return;
-            }
-
-            if (end < start) {
-                turkishAlert('Bitiş tarihi başlangıç tarihinden sonra olmalıdır.');
-                return;
-            }
-
-            // Store dates properly in local timezone to avoid parsing issues
-            customStartDate = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-            customEndDate = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-            currentPeriod = 'custom';
-
-            // Update UI
-            document.querySelector('.btn-secondary.active').classList.remove('active');
-            document.getElementById('custom-btn').classList.add('active');
-
-            hideCustomDatePopup();
-            performDynamicSearch(); // This will apply date/search filters and sorting
-            updateCharts();
-        } else {
-            turkishAlert('Lütfen hem başlangıç hem de bitiş tarihini seçiniz.');
+        // Use dates from custom calendar
+        if (!selectedStartDate || !selectedEndDate) {
+            turkishAlert('Lütfen başlangıç ve bitiş tarihlerini seçin.');
+            return;
         }
+
+        const start = new Date(selectedStartDate.getFullYear(), selectedStartDate.getMonth(), selectedStartDate.getDate(), 0, 0, 0);
+        const end = new Date(selectedEndDate.getFullYear(), selectedEndDate.getMonth(), selectedEndDate.getDate(), 23, 59, 59);
+        const today = new Date();
+        const oneYearAgo = new Date(today.getTime() - (365 * 24 * 60 * 60 * 1000));
+
+        // Create date-only objects for proper comparison
+        const startDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const selectedStart = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+        const selectedEnd = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+
+        // Validate date range (max 1 year, not in future) - compare dates properly
+        if (selectedStart > startDateOnly || selectedEnd > startDateOnly) {
+            turkishAlert('Tarihler gelecekte olamaz.');
+            return;
+        }
+
+        if (start < oneYearAgo) {
+            turkishAlert('Başlangıç tarihi 1 yıldan daha eski olamaz.');
+            return;
+        }
+
+        if (end < start) {
+            turkishAlert('Bitiş tarihi başlangıç tarihinden sonra olmalıdır.');
+            return;
+        }
+
+        // Store dates properly in local timezone to avoid parsing issues
+        customStartDate = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+        customEndDate = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+        currentPeriod = 'custom';
+
+        // Update UI
+        document.querySelector('.btn-secondary.active').classList.remove('active');
+        document.getElementById('custom-btn').classList.add('active');
+
+        hideCustomDatePopup();
+        performDynamicSearch(); // This will apply date/search filters and sorting
+        updateCharts();
     });
 
     // Custom date range cancel button
@@ -813,10 +1012,140 @@ function setupEventListeners() {
 }
 
 // Custom date popup control functions
+let startCalendar = null;
+let endCalendar = null;
+let selectedStartDate = null;
+let selectedEndDate = null;
+
+function initializeCustomCalendars() {
+    const today = new Date();
+    const oneYearAgo = new Date(today.getTime() - (365 * 24 * 60 * 60 * 1000));
+
+    // Initialize start date calendar
+    startCalendar = new TurkishCalendar('start-calendar', {
+        type: 'range-start',
+        minDate: oneYearAgo,
+        maxDate: today,
+        selectedDate: customStartDate || new Date(today.getTime() - (30 * 24 * 60 * 60 * 1000)),
+        rangeStart: customStartDate,
+        rangeEnd: customEndDate,
+        onSelect: (date) => {
+            selectedStartDate = date;
+            const displayElement = document.getElementById('start-date-display');
+            const dateText = displayElement.querySelector('.date-text');
+            dateText.textContent = startCalendar.formatDateTurkish(date);
+
+            // Update both calendars to show range
+            if (selectedEndDate && date > selectedEndDate) {
+                // If start date is after end date, swap them
+                selectedEndDate = date;
+                const endDisplayElement = document.getElementById('end-date-display');
+                const endDateText = endDisplayElement.querySelector('.date-text');
+                endDateText.textContent = endCalendar.formatDateTurkish(date);
+            }
+
+            if (endCalendar) {
+                endCalendar.setRangeStart(date);
+                endCalendar.setRangeEnd(selectedEndDate);
+            }
+            startCalendar.setRangeStart(date);
+            startCalendar.setRangeEnd(selectedEndDate);
+
+            // Close calendar
+            document.getElementById('start-calendar-wrapper').classList.remove('show');
+        }
+    });
+
+    // Initialize end date calendar
+    endCalendar = new TurkishCalendar('end-calendar', {
+        type: 'range-end',
+        minDate: oneYearAgo,
+        maxDate: today,
+        selectedDate: customEndDate || today,
+        rangeStart: customStartDate,
+        rangeEnd: customEndDate,
+        onSelect: (date) => {
+            selectedEndDate = date;
+            const displayElement = document.getElementById('end-date-display');
+            const dateText = displayElement.querySelector('.date-text');
+            dateText.textContent = endCalendar.formatDateTurkish(date);
+
+            // Update both calendars to show range
+            if (selectedStartDate && date < selectedStartDate) {
+                // If end date is before start date, swap them
+                selectedStartDate = date;
+                const startDisplayElement = document.getElementById('start-date-display');
+                const startDateText = startDisplayElement.querySelector('.date-text');
+                startDateText.textContent = startCalendar.formatDateTurkish(date);
+            }
+
+            if (startCalendar) {
+                startCalendar.setRangeStart(selectedStartDate);
+                startCalendar.setRangeEnd(date);
+            }
+            endCalendar.setRangeStart(selectedStartDate);
+            endCalendar.setRangeEnd(date);
+
+            // Close calendar
+            document.getElementById('end-calendar-wrapper').classList.remove('show');
+        }
+    });
+
+    // Set initial display text
+    const startDisplayElement = document.getElementById('start-date-display');
+    const endDisplayElement = document.getElementById('end-date-display');
+    const startDateText = startDisplayElement.querySelector('.date-text');
+    const endDateText = endDisplayElement.querySelector('.date-text');
+
+    if (customStartDate) {
+        startDateText.textContent = startCalendar.formatDateTurkish(customStartDate);
+        selectedStartDate = customStartDate;
+    }
+    if (customEndDate) {
+        endDateText.textContent = endCalendar.formatDateTurkish(customEndDate);
+        selectedEndDate = customEndDate;
+    }
+
+    // Setup click handlers for date inputs
+    startDisplayElement.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const wrapper = document.getElementById('start-calendar-wrapper');
+        const endWrapper = document.getElementById('end-calendar-wrapper');
+        endWrapper.classList.remove('show');
+        wrapper.classList.toggle('show');
+    });
+
+    endDisplayElement.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const wrapper = document.getElementById('end-calendar-wrapper');
+        const startWrapper = document.getElementById('start-calendar-wrapper');
+        startWrapper.classList.remove('show');
+        wrapper.classList.toggle('show');
+    });
+
+    // Close calendars when clicking outside
+    document.addEventListener('click', (e) => {
+        const startWrapper = document.getElementById('start-calendar-wrapper');
+        const endWrapper = document.getElementById('end-calendar-wrapper');
+        const startDisplay = document.getElementById('start-date-display');
+        const endDisplay = document.getElementById('end-date-display');
+
+        if (!startWrapper.contains(e.target) && !startDisplay.contains(e.target)) {
+            startWrapper.classList.remove('show');
+        }
+        if (!endWrapper.contains(e.target) && !endDisplay.contains(e.target)) {
+            endWrapper.classList.remove('show');
+        }
+    });
+}
+
 function showCustomDatePopup() {
     const popup = document.getElementById('custom-date-selector');
     popup.style.display = 'block';
-    initializeDateInputs(false);  // Don't reset values if already set
+
+    if (!startCalendar || !endCalendar) {
+        initializeCustomCalendars();
+    }
 }
 
 function hideCustomDatePopup() {
@@ -1012,12 +1341,10 @@ function updateSelectedDatesDisplay() {
 }
 
 // Initialize date inputs with proper constraints
+// NOTE: This function is deprecated - we now use custom Turkish calendar
 function initializeDateInputs(resetValues = true) {
-    const today = new Date();
-    const oneYearAgo = new Date(today.getTime() - (365 * 24 * 60 * 60 * 1000));
-
-    const startDateInput = document.getElementById('start-date');
-    const endDateInput = document.getElementById('end-date');
+    // No longer needed - using custom calendar
+    return;
 
     // Set max date to today (use local timezone to avoid UTC conversion issues)
     const todayStr = today.getFullYear() + '-' +
@@ -1276,53 +1603,48 @@ function generateChartData() {
                 visibleUsers.forEach(user => {
                     if (user.batchIds) {
                         user.batchIds.forEach(batch => {
-                            if (batch.spans_midnight && batch.ed) {
-                                const startDate = new Date(batch.d);
-                                const endDate = new Date(batch.ed);
-                                if (startDate >= weekStart && startDate < weekEnd) total += getBatchActivityForDate(batch, batch.d, 'active');
-                                if (endDate >= weekStart && endDate < weekEnd) total += getBatchActivityForDate(batch, batch.ed, 'active');
-                            } else {
-                                const batchDate = new Date(batch.d);
-                                if (batchDate >= weekStart && batchDate < weekEnd) total += (batch.at || 0);
+                            const batchDate = new Date(batch.d);
+                            if (batchDate >= weekStart && batchDate < weekEnd) {
+                                total += (batch.at || 0);
                             }
                         });
                     }
                 });
-                return total / Math.max(1, visibleUsers.length);
+                // Calculate average daily activity for the week (divide by 7 days)
+                return total / Math.max(1, visibleUsers.length) / 7;
             })();
             data.push(Math.round(avgActivity));
         }
     } else if (currentPeriod === 'annual') {
-        // Show average monthly activity for current year
+        // Show average DAILY activity for each month of the year
         const today = new Date();
         const year = today.getFullYear();
-        
+
         labels = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
         data = [];
-        
+
         for (let month = 0; month < 12; month++) {
             const monthStart = new Date(year, month, 1);
-            const avgActivity = (function() {
-                const monthEnd = new Date(monthStart.getTime() + (30 * 24 * 60 * 60 * 1000));
-                let total = 0;
-                visibleUsers.forEach(user => {
-                    if (user.batchIds) {
-                        user.batchIds.forEach(batch => {
-                            if (batch.spans_midnight && batch.ed) {
-                                const startDate = new Date(batch.d);
-                                const endDate = new Date(batch.ed);
-                                if (startDate >= monthStart && startDate < monthEnd) total += getBatchActivityForDate(batch, batch.d, 'active');
-                                if (endDate >= monthStart && endDate < monthEnd) total += getBatchActivityForDate(batch, batch.ed, 'active');
-                            } else {
-                                const batchDate = new Date(batch.d);
-                                if (batchDate >= monthStart && batchDate < monthEnd) total += (batch.at || 0);
-                            }
-                        });
-                    }
-                });
-                return total / Math.max(1, visibleUsers.length);
-            })();
-            data.push(Math.round(avgActivity));
+            const monthEnd = new Date(year, month + 1, 0);
+            monthEnd.setHours(23, 59, 59, 999);
+
+            const daysInMonth = monthEnd.getDate();
+
+            let totalMonthActivity = 0;
+            visibleUsers.forEach(user => {
+                if (user.batchIds) {
+                    user.batchIds.forEach(batch => {
+                        const batchDate = new Date(batch.d);
+                        if (batchDate >= monthStart && batchDate <= monthEnd) {
+                            totalMonthActivity += (batch.at || 0);
+                        }
+                    });
+                }
+            });
+
+            // Calculate average daily activity: total activity / users / days in month
+            const avgDailyActivity = totalMonthActivity / Math.max(1, visibleUsers.length) / daysInMonth;
+            data.push(Math.round(avgDailyActivity));
         }
     } else if (currentPeriod === 'custom' && customStartDate && customEndDate) {
         // Generate labels based on custom date range
@@ -1783,11 +2105,33 @@ function resetAllFilters() {
     // Hide custom date popup if open
     hideCustomDatePopup();
 
-    // Clear custom date inputs
-    const startDateInput = document.getElementById('start-date');
-    const endDateInput = document.getElementById('end-date');
-    if (startDateInput) startDateInput.value = '';
-    if (endDateInput) endDateInput.value = '';
+    // Clear custom date inputs and calendar selections
+    selectedStartDate = null;
+    selectedEndDate = null;
+
+    // Reset calendar display text
+    const startDisplayElement = document.getElementById('start-date-display');
+    const endDisplayElement = document.getElementById('end-date-display');
+    if (startDisplayElement) {
+        const startDateText = startDisplayElement.querySelector('.date-text');
+        if (startDateText) startDateText.textContent = 'Tarih seçin';
+    }
+    if (endDisplayElement) {
+        const endDateText = endDisplayElement.querySelector('.date-text');
+        if (endDateText) endDateText.textContent = 'Tarih seçin';
+    }
+
+    // Reset calendars
+    if (startCalendar) {
+        startCalendar.setSelectedDate(null);
+        startCalendar.setRangeStart(null);
+        startCalendar.setRangeEnd(null);
+    }
+    if (endCalendar) {
+        endCalendar.setSelectedDate(null);
+        endCalendar.setRangeStart(null);
+        endCalendar.setRangeEnd(null);
+    }
 
     // Apply filters and update display
     performDynamicSearch(); // This will apply date filters and empty search
@@ -1998,7 +2342,7 @@ function createActivityChart() {
         data: {
             labels: hasData ? labels : [],
             datasets: hasData ? [{
-                label: currentPeriod === 'daily' ? 'Bugün Ortalama Aktif Süre (saat)' : 'Ortalama Aktivite (saat)',
+                label: 'Günlük Ortalama Aktif Süre (saat)',
                 data: data,
                 borderColor: '#A0C0D6',
                 backgroundColor: 'rgba(160, 192, 214, 0.1)',
@@ -2020,7 +2364,7 @@ function createActivityChart() {
                         label: function(context) {
                             const minutes = context.parsed.y;
                             const seconds = minutes * 60; // Convert minutes back to seconds for formatting
-                            return `Ortalama Aktivite: ${formatTimeForTooltip(seconds)}`;
+                            return `Günlük Ortalama: ${formatTimeForTooltip(seconds)}`;
                         }
                     }
                 }

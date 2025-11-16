@@ -99,13 +99,39 @@
                                     <div class="popup-content">
                                         <div class="date-range-container">
                                             <div class="date-row">
-                                                <label for="start-date" class="date-label">Başlangıç</label>
-                                                <input type="date" id="start-date" class="date-input">
+                                                <label for="start-date-display" class="date-label">Başlangıç</label>
+                                                <div class="date-input-wrapper" style="position: relative; width: 160px;">
+                                                    <div class="date-input-custom" id="start-date-display">
+                                                        <span class="date-text">Tarih seçin</span>
+                                                        <svg class="calendar-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                                                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                                                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                                                        </svg>
+                                                    </div>
+                                                    <div class="calendar-wrapper" id="start-calendar-wrapper">
+                                                        <div class="custom-calendar" id="start-calendar"></div>
+                                                    </div>
+                                                </div>
                                                 <button class="btn btn-secondary btn-sm" id="cancel-date-range">İptal Et</button>
                                             </div>
                                             <div class="date-row">
-                                                <label for="end-date" class="date-label">Bitiş</label>
-                                                <input type="date" id="end-date" class="date-input">
+                                                <label for="end-date-display" class="date-label">Bitiş</label>
+                                                <div class="date-input-wrapper" style="position: relative; width: 160px;">
+                                                    <div class="date-input-custom" id="end-date-display">
+                                                        <span class="date-text">Tarih seçin</span>
+                                                        <svg class="calendar-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                                                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                                                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                                                        </svg>
+                                                    </div>
+                                                    <div class="calendar-wrapper" id="end-calendar-wrapper">
+                                                        <div class="custom-calendar" id="end-calendar"></div>
+                                                    </div>
+                                                </div>
                                                 <button class="btn btn-primary btn-sm" id="apply-date-range">Uygula</button>
                                             </div>
                                         </div>
