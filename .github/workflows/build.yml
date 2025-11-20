@@ -65,7 +65,7 @@ jobs:
       with:
         name: ActivityX-macOS
         path: dist/*.dmg
-        retention-days: 30
+        retention-days: 7
 
     - name: Upload Windows artifacts
       if: matrix.os == 'windows-latest'
@@ -73,7 +73,7 @@ jobs:
       with:
         name: ActivityX-Windows
         path: dist/*.exe
-        retention-days: 30
+        retention-days: 7
 
   release:
     needs: build
