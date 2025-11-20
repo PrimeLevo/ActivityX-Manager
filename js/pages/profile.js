@@ -28,13 +28,10 @@ class ProfilePage {
         // Try to get current user first
         let sessionData = await window.electronAPI.getCurrentUser();
 
-        console.log('[Profile] getCurrentUser result:', sessionData);
 
         // If that fails, try getUserSession as fallback
         if (!sessionData || !sessionData.user) {
-            console.log('[Profile] Trying getUserSession as fallback...');
             sessionData = await window.electronAPI.getUserSession();
-            console.log('[Profile] getUserSession result:', sessionData);
         }
 
         if (!sessionData || !sessionData.user) {
@@ -44,8 +41,6 @@ class ProfilePage {
         this.currentUser = sessionData.user;
         this.userProfile = sessionData.user.profile || {};
 
-        console.log('[Profile] Current user:', this.currentUser);
-        console.log('[Profile] User profile:', this.userProfile);
 
         this.originalData = {
             firstName: this.userProfile.first_name || '',
@@ -192,19 +187,15 @@ class ProfilePage {
         submitBtn.textContent = 'Güncelleniyor...';
 
         try {
-            console.log('[Profile] Calling changePassword API');
 
             // Get session tokens from main process
             const tokens = await window.electronAPI.getSessionTokens();
-            console.log('[Profile] Session tokens retrieved from main process:', !!tokens);
 
             if (!tokens || !tokens.access_token || !tokens.refresh_token) {
                 throw new Error('Oturum bulunamadı. Lütfen tekrar giriş yapınız.');
             }
 
             const { access_token, refresh_token } = tokens;
-            console.log('[Profile] Has access token:', !!access_token);
-            console.log('[Profile] Has refresh token:', !!refresh_token);
 
             const result = await window.electronAPI.changePassword({
                 currentPassword,
@@ -213,7 +204,6 @@ class ProfilePage {
                 refreshToken: refresh_token
             });
 
-            console.log('[Profile] Change password result:', result);
 
             if (result.success) {
                 document.getElementById('current-password').value = '';

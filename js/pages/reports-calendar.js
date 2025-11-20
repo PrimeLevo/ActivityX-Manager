@@ -106,11 +106,9 @@ function createReportCalendars() {
 
 // Toggle calendar visibility
 function toggleCalendar(type) {
-    console.log('toggleCalendar called with type:', type);
 
     // Make sure calendars are created first
     if (!window.reportStartCalendar || !window.reportEndCalendar) {
-        console.log('Creating calendars...');
         createReportCalendars();
     }
 
@@ -126,15 +124,12 @@ function toggleCalendar(type) {
         // Check visibility using computed style for reliability
         const computedStyle = window.getComputedStyle(startWrapper);
         const isVisible = computedStyle.display === 'block';
-        console.log('Start calendar isVisible:', isVisible, 'display:', startWrapper.style.display);
 
         if (isVisible) {
             // Hide if already visible
-            console.log('Hiding start calendar');
             startWrapper.style.display = 'none';
         } else {
             // Hide the other calendar first
-            console.log('Showing start calendar, hiding end calendar');
             endWrapper.style.display = 'none';
 
             // Update calendar properties before showing
@@ -158,15 +153,12 @@ function toggleCalendar(type) {
         // Check visibility using computed style for reliability
         const computedStyle = window.getComputedStyle(endWrapper);
         const isVisible = computedStyle.display === 'block';
-        console.log('End calendar isVisible:', isVisible, 'display:', endWrapper.style.display);
 
         if (isVisible) {
             // Hide if already visible
-            console.log('Hiding end calendar');
             endWrapper.style.display = 'none';
         } else {
             // Hide the other calendar first
-            console.log('Showing end calendar, hiding start calendar');
             startWrapper.style.display = 'none';
 
             // Update calendar properties before showing
@@ -272,30 +264,21 @@ function setupDateDisplayHandlers() {
     const startDateDisplay = document.getElementById('report-start-date-display');
     const endDateDisplay = document.getElementById('report-end-date-display');
 
-    console.log('Setting up date display handlers...');
-    console.log('Start date display found:', !!startDateDisplay);
-    console.log('End date display found:', !!endDateDisplay);
 
     if (startDateDisplay) {
         startDateDisplay.addEventListener('click', (e) => {
             e.stopPropagation();
-            console.log('Start date display clicked');
             toggleCalendar('start');
         });
-        console.log('Start date display click handler attached');
     } else {
-        console.warn('Start date display element not found');
     }
 
     if (endDateDisplay) {
         endDateDisplay.addEventListener('click', (e) => {
             e.stopPropagation();
-            console.log('End date display clicked');
             toggleCalendar('end');
         });
-        console.log('End date display click handler attached');
     } else {
-        console.warn('End date display element not found');
     }
 }
 
@@ -304,4 +287,3 @@ window.openReportGenerationModal = openReportGenerationModal;
 window.closeReportGenerationModal = closeReportGenerationModal;
 window.toggleCalendar = toggleCalendar;
 
-console.log('Turkish Calendar Modal functions loaded');

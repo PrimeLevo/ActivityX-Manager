@@ -125,4 +125,3 @@ window.getDisplayName = function(pcName) {
     return window.userNameMapping.getDisplayName(pcName);
 };
 
-console.log('[UserNameMapping] Utility loaded. Mappings:', window.userNameMapping.getAllMappings());

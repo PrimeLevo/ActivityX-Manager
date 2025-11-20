@@ -23,13 +23,10 @@ class LogoutModalHandler {
     }
 
     setup() {
-        console.log('[LogoutModal] Setting up logout modal handler');
-
         // Use event delegation on document level to catch all clicks
         document.addEventListener('click', (e) => {
             // Handle sidebar logout button
             if (e.target.closest('#sidebar-logout-btn')) {
-                console.log('[LogoutModal] Sidebar logout button clicked');
                 e.preventDefault();
                 e.stopPropagation();
                 this.showModal();
@@ -38,7 +35,6 @@ class LogoutModalHandler {
 
             // Handle main logout button
             if (e.target.closest('#logout-btn')) {
-                console.log('[LogoutModal] Main logout button clicked');
                 e.preventDefault();
                 e.stopPropagation();
                 this.showModal();
@@ -47,7 +43,6 @@ class LogoutModalHandler {
 
             // Handle cancel button
             if (e.target.closest('#logout-cancel')) {
-                console.log('[LogoutModal] Cancel button clicked');
                 e.preventDefault();
                 e.stopPropagation();
                 this.hideModal();
@@ -56,7 +51,6 @@ class LogoutModalHandler {
 
             // Handle confirm button
             if (e.target.closest('#logout-confirm')) {
-                console.log('[LogoutModal] Confirm button clicked');
                 e.preventDefault();
                 e.stopPropagation();
                 this.handleLogout();
@@ -65,7 +59,6 @@ class LogoutModalHandler {
 
             // Handle backdrop click
             if (e.target.id === 'logout-modal') {
-                console.log('[LogoutModal] Backdrop clicked');
                 this.hideModal();
                 return;
             }
@@ -79,9 +72,6 @@ class LogoutModalHandler {
         const observer = new MutationObserver(() => {
             if (!this.modal) {
                 this.modal = document.getElementById('logout-modal');
-                if (this.modal) {
-                    console.log('[LogoutModal] Modal found in DOM');
-                }
             }
         });
 
@@ -98,7 +88,6 @@ class LogoutModalHandler {
         this.modal = this.modal || document.getElementById('logout-modal');
 
         if (this.modal) {
-            console.log('[LogoutModal] Showing modal');
             // Use flex display for proper centering
             this.modal.style.display = 'flex';
 
@@ -111,7 +100,6 @@ class LogoutModalHandler {
                 if (cancelBtn) cancelBtn.focus();
             }, 100);
         } else {
-            console.error('[LogoutModal] Modal not found in DOM');
             // Fallback: Try to create modal if it doesn't exist
             this.createModalFallback();
         }
@@ -121,44 +109,34 @@ class LogoutModalHandler {
         this.modal = this.modal || document.getElementById('logout-modal');
 
         if (this.modal) {
-            console.log('[LogoutModal] Hiding modal');
             this.modal.style.display = 'none';
         }
     }
 
     async handleLogout() {
-        console.log('[LogoutModal] Starting logout process');
-
         try {
             // Hide modal first
             this.hideModal();
 
             // Check if electronAPI is available
             if (window.electronAPI && window.electronAPI.signOutUser) {
-                console.log('[LogoutModal] Calling electronAPI.signOutUser');
                 try {
                     await window.electronAPI.signOutUser();
                 } catch (apiError) {
-                    console.error('[LogoutModal] API error:', apiError);
+                    // Silent error handling
                 }
-            } else {
-                console.log('[LogoutModal] electronAPI not available');
             }
 
             // Clear storage
-            console.log('[LogoutModal] Clearing storage');
             localStorage.clear();
             sessionStorage.clear();
 
             // Small delay to ensure everything is processed
             setTimeout(() => {
-                console.log('[LogoutModal] Navigating to auth.html');
                 window.location.href = 'auth.html';
             }, 100);
 
         } catch (error) {
-            console.error('[LogoutModal] Logout error:', error);
-
             // Still navigate on error
             localStorage.clear();
             sessionStorage.clear();
@@ -167,7 +145,6 @@ class LogoutModalHandler {
     }
 
     createModalFallback() {
-        console.log('[LogoutModal] Creating modal fallback');
 
         // Check if modal already exists
         if (document.getElementById('logout-modal')) {
@@ -204,5 +181,3 @@ class LogoutModalHandler {
 
 // Initialize globally
 window.logoutModalHandler = new LogoutModalHandler();
-
-console.log('[LogoutModal] Logout modal handler initialized');

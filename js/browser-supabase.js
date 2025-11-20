@@ -19,7 +19,6 @@
         init() {
             // Check if we're in a browser environment with Supabase loaded
             if (typeof window !== 'undefined' && window.supabase && window.supabase.createClient) {
-                console.log('[BrowserSupabase] Initializing Supabase client');
                 this.supabase = window.supabase.createClient(BROWSER_SUPABASE_URL, BROWSER_SUPABASE_ANON_KEY, {
                     auth: {
                         autoRefreshToken: true,
@@ -28,15 +27,11 @@
                         storage: window.localStorage
                     }
                 });
-                console.log('[BrowserSupabase] Supabase client initialized');
-            } else {
-                console.warn('[BrowserSupabase] Supabase library not available in window');
             }
         }
 
     async getSession() {
         if (!this.supabase) {
-            console.error('[BrowserSupabase] Supabase client not initialized');
             return null;
         }
 
@@ -44,26 +39,17 @@
             const { data: { session }, error } = await this.supabase.auth.getSession();
 
             if (error) {
-                console.error('[BrowserSupabase] Error getting session:', error);
                 return null;
             }
 
-            console.log('[BrowserSupabase] Session retrieved:', {
-                hasSession: !!session,
-                hasAccessToken: !!session?.access_token,
-                hasRefreshToken: !!session?.refresh_token
-            });
-
             return session;
         } catch (error) {
-            console.error('[BrowserSupabase] Exception getting session:', error);
             return null;
         }
     }
 
     async getUser() {
         if (!this.supabase) {
-            console.error('[BrowserSupabase] Supabase client not initialized');
             return null;
         }
 
@@ -71,14 +57,11 @@
             const { data: { user }, error } = await this.supabase.auth.getUser();
 
             if (error) {
-                console.error('[BrowserSupabase] Error getting user:', error);
                 return null;
             }
 
-            console.log('[BrowserSupabase] User retrieved:', !!user);
             return user;
         } catch (error) {
-            console.error('[BrowserSupabase] Exception getting user:', error);
             return null;
         }
     }
@@ -100,6 +83,4 @@
 
     // Create global instance
     window.browserSupabase = new BrowserSupabase();
-
-    console.log('[BrowserSupabase] Module loaded');
 })();

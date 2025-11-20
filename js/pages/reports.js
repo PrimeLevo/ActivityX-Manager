@@ -637,8 +637,6 @@ async function generateReport() {
 
 // Process report data
 function processReportData(persistedUsers, userNames, dateRange, options) {
-    console.log('Processing report for users:', userNames);
-    console.log('Date range:', dateRange);
 
     const report = {
         id: Date.now().toString(),
@@ -668,7 +666,6 @@ function processReportData(persistedUsers, userNames, dateRange, options) {
         const userData = persistedUsers.find(u => (u.pcName || u.username || u.userId) === userName);
 
         if (!userData) {
-            console.warn('User not found:', userName);
             return;
         }
 
@@ -679,12 +676,8 @@ function processReportData(persistedUsers, userNames, dateRange, options) {
 
         // Process batch data - batches are stored in batchIds array
         if (userData.batchIds && Array.isArray(userData.batchIds)) {
-            console.log(`Processing ${userData.batchIds.length} batches for ${userName}`);
             if (userData.batchIds.length > 0) {
                 const firstBatch = userData.batchIds[0];
-                console.log(`First batch structure for ${userName}:`, firstBatch);
-                console.log(`Available fields:`, Object.keys(firstBatch));
-                console.log(`Date range: ${dateRange.startDate.toISOString()} to ${dateRange.endDate.toISOString()}`);
             }
 
             userData.batchIds.forEach(batch => {
@@ -697,7 +690,6 @@ function processReportData(persistedUsers, userNames, dateRange, options) {
 
                 // Skip if date is invalid
                 if (isNaN(batchDate.getTime())) {
-                    console.warn(`Skipping batch with invalid date for ${userName}:`, dateStr, timeStr);
                     return;
                 }
 
@@ -747,9 +739,6 @@ function processReportData(persistedUsers, userNames, dateRange, options) {
 
                                 // Debug logging for first site
                                 if (Object.keys(userWebsites).length === 0) {
-                                    console.log('First website item structure (array):', siteItem);
-                                    console.log('Available fields:', Object.keys(siteItem));
-                                    console.log('Extracted time:', siteTime);
                                 }
 
                                 userWebsites[cleanSite] = (userWebsites[cleanSite] || 0) + siteTime;
@@ -768,9 +757,6 @@ function processReportData(persistedUsers, userNames, dateRange, options) {
 
                                 // Debug logging for first site
                                 if (Object.keys(userWebsites).length === 0) {
-                                    console.log('First website object entry:', site, siteData);
-                                    console.log('Type of siteData:', typeof siteData);
-                                    console.log('Extracted time:', numTime);
                                 }
 
                                 userWebsites[cleanSite] = (userWebsites[cleanSite] || 0) + numTime;
@@ -782,7 +768,6 @@ function processReportData(persistedUsers, userNames, dateRange, options) {
             });
         }
 
-        console.log(`User ${userName}: ${batchesInRange} batches in range, ${userActiveTime}s active time`);
 
         // Add user details to report only if they have data in the range
         if (batchesInRange > 0 || userActiveTime > 0) {
@@ -831,7 +816,6 @@ function processReportData(persistedUsers, userNames, dateRange, options) {
         };
     }
 
-    console.log('Report generated:', report);
     return report;
 }
 

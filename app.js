@@ -416,7 +416,6 @@ function loadPersistedUsers() {
         const parsed = JSON.parse(raw);
 
         if (!Array.isArray(parsed)) {
-            console.warn('[Storage] Invalid data format in localStorage');
             return [];
         }
 
@@ -449,7 +448,7 @@ function savePersistedUsers(persistedUsers) {
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(persistedUsers));
     } catch (e) {
-        console.warn('Failed to save users:', e);
+        // Silently fail if localStorage is not available
     }
 }
 
@@ -524,7 +523,6 @@ function mergeCumulativeUsers(existingUsers, incomingUsers) {
 
             // Only log if the activity was actually updated to a newer time
             if (maxTime > currentTime) {
-                console.log(`User ${cur.name}: lastActivity updated to ${new Date(maxTime)}`);
             }
         }
         // If incoming user has no valid lastActivity, keep existing lastActivity unchanged
@@ -603,38 +601,8 @@ function normalizeForTurkishSearch(text) {
 
 // Test function to verify Turkish normalization
 function testTurkishNormalization() {
-    console.log('Testing Turkish normalization:');
-    console.log('İrfan ->', normalizeForTurkishSearch('İrfan'));
-    console.log('irfan ->', normalizeForTurkishSearch('irfan'));
-    console.log('irf ->', normalizeForTurkishSearch('irf'));
-    console.log('İRFAN ->', normalizeForTurkishSearch('İRFAN'));
     
-    console.log('\nTesting all Turkish characters:');
-    console.log('S ->', normalizeForTurkishSearch('S'));
-    console.log('Ş ->', normalizeForTurkishSearch('Ş'));
-    console.log('ş ->', normalizeForTurkishSearch('ş'));
-    console.log('G ->', normalizeForTurkishSearch('G'));
-    console.log('Ğ ->', normalizeForTurkishSearch('Ğ'));
-    console.log('ğ ->', normalizeForTurkishSearch('ğ'));
-    console.log('U ->', normalizeForTurkishSearch('U'));
-    console.log('Ü ->', normalizeForTurkishSearch('Ü'));
-    console.log('ü ->', normalizeForTurkishSearch('ü'));
-    console.log('O ->', normalizeForTurkishSearch('O'));
-    console.log('Ö ->', normalizeForTurkishSearch('Ö'));
-    console.log('ö ->', normalizeForTurkishSearch('ö'));
-    console.log('C ->', normalizeForTurkishSearch('C'));
-    console.log('Ç ->', normalizeForTurkishSearch('Ç'));
-    console.log('ç ->', normalizeForTurkishSearch('ç'));
     
-    console.log('\nTesting Turkish names:');
-    console.log('Şükrü ->', normalizeForTurkishSearch('Şükrü'));
-    console.log('sukru ->', normalizeForTurkishSearch('sukru'));
-    console.log('Gökhan ->', normalizeForTurkishSearch('Gökhan'));
-    console.log('gokhan ->', normalizeForTurkishSearch('gokhan'));
-    console.log('Özlem ->', normalizeForTurkishSearch('Özlem'));
-    console.log('ozlem ->', normalizeForTurkishSearch('ozlem'));
-    console.log('Çağlar ->', normalizeForTurkishSearch('Çağlar'));
-    console.log('caglar ->', normalizeForTurkishSearch('caglar'));
 }
 
 // Custom tooltip functionality
@@ -1080,7 +1048,6 @@ function initializeRouter() {
     router.addRoute('profile', {
         template: 'pages/profile.html',
         onLoad: () => {
-            console.log('[APP] Profile route loaded, initializing ProfilePage');
             // Initialize ProfilePage after DOM is ready
             if (window.ProfilePage) {
                 new window.ProfilePage();
@@ -1196,7 +1163,6 @@ document.addEventListener('DOMContentLoaded', function() {
     } else {
         users = [];
         filteredUsers = [];
-        console.log('No data in localStorage. Click "Verileri Güncelle" to fetch from Supabase');
     }
 
     filterUsersByDateRange(); // Apply initial filtering
@@ -1251,7 +1217,6 @@ function setupTablePage() {
 
     // Reload data from localStorage to ensure we have the latest data
     const persisted = loadPersistedUsers();
-    console.log('[Table] Loading data from localStorage:', persisted ? persisted.length : 0, 'users');
 
     if (persisted && persisted.length > 0) {
         users = persisted.map(user => {
@@ -1261,14 +1226,10 @@ function setupTablePage() {
             return user;
         });
         filteredUsers = [...users];
-        console.log('[Table] Filtered users:', filteredUsers.length);
         filterUsersByDateRange();
-        console.log('[Table] After date filter:', filteredUsers.length);
         updateUserTable(); // Render table with loaded data
         updateCharts(); // Render charts with loaded data
-        console.log('[Table] Table and charts updated');
     } else {
-        console.warn('[Table] No persisted users found in localStorage');
         users = [];
         filteredUsers = [];
         // Still call render functions to show empty state
@@ -1531,7 +1492,6 @@ function setupEventListeners() {
             // Show custom logout modal
             const logoutModal = document.getElementById('logout-modal');
             if (logoutModal) {
-                console.log('[DEBUG] Opening logout modal from main button');
                 logoutModal.style.display = 'flex';
             }
         });
@@ -1543,11 +1503,6 @@ function setupEventListeners() {
         const logoutConfirmBtn = document.getElementById('logout-confirm');
         const logoutModal = document.getElementById('logout-modal');
 
-        console.log('[DEBUG] Setting up logout modal listeners:', {
-            cancelBtn: !!logoutCancelBtn,
-            confirmBtn: !!logoutConfirmBtn,
-            modal: !!logoutModal
-        });
 
         if (logoutCancelBtn) {
             // Remove any existing listeners by cloning
@@ -1555,14 +1510,12 @@ function setupEventListeners() {
             logoutCancelBtn.parentNode.replaceChild(newCancelBtn, logoutCancelBtn);
 
             newCancelBtn.addEventListener('click', function(e) {
-                console.log('[DEBUG] Cancel button clicked');
                 e.preventDefault();
                 e.stopPropagation();
 
                 const modal = document.getElementById('logout-modal');
                 if (modal) {
                     modal.style.display = 'none';
-                    console.log('[DEBUG] Modal closed via cancel');
                 }
             });
         }
@@ -1573,7 +1526,6 @@ function setupEventListeners() {
             logoutConfirmBtn.parentNode.replaceChild(newConfirmBtn, logoutConfirmBtn);
 
             newConfirmBtn.addEventListener('click', async function(e) {
-                console.log('[DEBUG] Confirm button clicked');
                 e.preventDefault();
                 e.stopPropagation();
 
@@ -1583,23 +1535,18 @@ function setupEventListeners() {
                 }
 
                 try {
-                    console.log('[DEBUG] Starting logout process');
 
                     // Check if electronAPI is available
                     if (window.electronAPI && window.electronAPI.signOutUser) {
-                        console.log('[DEBUG] Calling electronAPI.signOutUser');
                         await window.electronAPI.signOutUser();
                     } else {
-                        console.log('[DEBUG] electronAPI not available, proceeding with logout');
                     }
 
                     // Clear any local storage data
-                    console.log('[DEBUG] Clearing storage');
                     localStorage.clear();
                     sessionStorage.clear();
 
                     // Navigate to auth page after successful logout
-                    console.log('[DEBUG] Navigating to auth.html');
                     window.location.href = 'auth.html';
                 } catch (error) {
                     console.error('[DEBUG] Logout error:', error);
@@ -1620,7 +1567,6 @@ function setupEventListeners() {
             newModal.addEventListener('click', function(e) {
                 // Only close if clicking on the modal backdrop itself
                 if (e.target === this) {
-                    console.log('[DEBUG] Modal backdrop clicked');
                     this.style.display = 'none';
                 }
             });
@@ -2452,11 +2398,7 @@ function generateChartData() {
         }
     } else if (currentPeriod === 'custom' && customStartDate && customEndDate) {
         // Generate labels based on custom date range
-        console.log('Custom date range chart generation:');
-        console.log('customStartDate:', customStartDate);
-        console.log('customEndDate:', customEndDate);
         const daysDiff = Math.ceil((customEndDate - customStartDate) / (1000 * 60 * 60 * 24));
-        console.log('daysDiff:', daysDiff);
 
         if (daysDiff === 0) {
             // Single day selected - add empty padding before and after to center the day
@@ -2601,7 +2543,6 @@ function getBatchActivityForDate(batch, targetDateStr, activityType = 'active') 
             
             // Debug logging for midnight-spanning batches
             if (batch.spans_midnight) {
-                console.log(`Midnight span - Date: ${targetDateStr}, Type: ${activityType}, Proportion: ${(proportion * 100).toFixed(1)}%, Result: ${result.toFixed(1)}s`);
             }
             
             return result;
@@ -2614,7 +2555,6 @@ function getBatchActivityForDate(batch, targetDateStr, activityType = 'active') 
             
             // Debug logging for midnight-spanning batches
             if (batch.spans_midnight) {
-                console.log(`Midnight span - Date: ${targetDateStr}, Type: ${activityType}, Proportion: ${(proportion * 100).toFixed(1)}%, Result: ${result.toFixed(1)}s`);
             }
             
             return result;
@@ -3925,7 +3865,6 @@ function processUserWebsites(user) {
     }
 
     const result = Array.from(websitesMap.values()).sort((a, b) => b.usage - a.usage);
-    // console.log('Processed websites:', result.length, 'websites found'); // Commented out to reduce console noise
     return result;
 }
 
@@ -3942,9 +3881,6 @@ function openUserModal(userId) {
     // Store for CSV export
     currentModalUser = filteredUser;
 
-    console.log('Opening modal for user:', filteredUser);
-    console.log('User websites:', filteredUser.websites);
-    console.log('User apps:', filteredUser.apps);
 
     // Populate basic user info
     document.getElementById('modal-user-name').textContent = filteredUser.name;
@@ -4154,7 +4090,6 @@ function populateAppsTable(user) {
 function populateWebsitesTable(user) {
     const tbody = document.getElementById('modal-websites-table');
     
-    console.log('Debug: user.websites data:', user.websites);
     
     if (!user.websites || user.websites.length === 0) {
         tbody.innerHTML = '<tr><td colspan="4">Web sitesi kullanım verisi bulunamadı.</td></tr>';
@@ -4467,7 +4402,6 @@ async function loadAllUserData() {
 async function updateDataFromSupabase() {
     // Prevent multiple simultaneous updates
     if (isUpdatingData) {
-        console.log('Update already in progress, skipping duplicate call');
         return;
     }
 
@@ -4486,22 +4420,18 @@ async function updateDataFromSupabase() {
         }
 
         // Step 2: Fetch data from Supabase
-        console.log('Fetching data from Supabase...');
         const data = await fetchDataFromSupabase();
         
         if (data && data.length > 0) {
             // Step 3: Get user IDs and fetch real names
-            console.log(`Successfully fetched ${data.length} records from Supabase`);
             updateLoadingPopup('Kullanıcı İsimleri Getiriliyor');
             if (updateBtn) {
                 updateBtn.innerHTML = 'Veriler Güncelleniyor';
             }
 
             const userIds = extractUserIds(data);
-            console.log('Extracted user IDs:', userIds);
 
             const userNames = await fetchUserNames(userIds);
-            console.log('Received user names:', userNames);
 
             // Step 4: Process the data with real names
             updateLoadingPopup('Veriler İnceleniyor');
@@ -4529,7 +4459,6 @@ async function updateDataFromSupabase() {
             }
 
             // Step 6: Confirm receipt (you can customize this part based on your needs)
-            console.log('Confirming data receipt...');
             await confirmDataReceipt(data.length);
 
             // Step 7: Delete all data from Supabase table
@@ -4537,14 +4466,12 @@ async function updateDataFromSupabase() {
             if (updateBtn) {
                 updateBtn.innerHTML = 'Veriler Güncelleniyor';
             }
-            console.log('Deleting all data from Supabase...');
             await deleteAllDataFromSupabase();
             
             // Step 7: Success
             if (updateBtn) {
                 updateBtn.innerHTML = 'Veriler Güncelleniyor';
             }
-            console.log('Data update process completed successfully');
 
             // Hide loading popup and show success message
             hideLoadingPopup();
@@ -4553,7 +4480,6 @@ async function updateDataFromSupabase() {
             }, 100);
             
         } else {
-            console.log('No data found in Supabase table');
             hideLoadingPopup();
             setTimeout(() => {
                 turkishAlert('Veriler Zaten Güncel');
@@ -4587,7 +4513,6 @@ async function fetchDataFromSupabase() {
     let hasMore = true;
     let totalFetched = 0;
 
-    console.log('Starting paginated data fetch from Supabase...');
 
     while (hasMore) {
         const rangeEnd = rangeStart + rangeSize - 1;
@@ -4607,7 +4532,6 @@ async function fetchDataFromSupabase() {
         if (!response.ok) {
             // Check if it's a 416 Range Not Satisfiable (means we've fetched all data)
             if (response.status === 416) {
-                console.log('All data fetched (reached end of table)');
                 break;
             }
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -4621,7 +4545,6 @@ async function fetchDataFromSupabase() {
             const match = contentRange.match(/\d+-\d+\/(\d+|\*)/);
             if (match && match[1] !== '*') {
                 const totalCount = parseInt(match[1]);
-                console.log(`Fetching records: ${rangeStart + 1}-${Math.min(rangeEnd + 1, totalCount)} of ${totalCount} total`);
 
                 // Update loading popup with progress
                 if (typeof updateLoadingPopup === 'function') {
@@ -4634,12 +4557,10 @@ async function fetchDataFromSupabase() {
         if (data && data.length > 0) {
             allData = [...allData, ...data];
             totalFetched += data.length;
-            console.log(`Fetched ${data.length} records in this batch, total so far: ${totalFetched}`);
 
             // If we got fewer records than requested, we've reached the end
             if (data.length < rangeSize) {
                 hasMore = false;
-                console.log('Received fewer records than requested, reached end of data');
             } else {
                 // Move to next page
                 rangeStart += rangeSize;
@@ -4647,11 +4568,9 @@ async function fetchDataFromSupabase() {
         } else {
             // No more data
             hasMore = false;
-            console.log('No more data to fetch');
         }
     }
 
-    console.log(`Successfully fetched total of ${allData.length} records from Supabase`);
     return allData;
 }
 
@@ -4667,7 +4586,6 @@ async function confirmDataReceipt(recordCount) {
         message: 'Data successfully received by admin dashboard'
     };
     
-    console.log('Data receipt confirmed:', receiptLog);
     
     // If you want to log this receipt to another table in Supabase, 
     // you can uncomment and modify the following code:
@@ -4684,7 +4602,6 @@ async function confirmDataReceipt(recordCount) {
             body: JSON.stringify(receiptLog)
         });
     } catch (error) {
-        console.warn('Could not log receipt (this is optional):', error);
     }
     */
     
@@ -4711,7 +4628,6 @@ async function deleteAllDataFromSupabase() {
     const records = await selectResponse.json();
     
     if (records.length === 0) {
-        console.log('No records to delete');
         return;
     }
     
@@ -4731,7 +4647,6 @@ async function deleteAllDataFromSupabase() {
         throw new Error(`Failed to delete records: ${deleteResponse.status}`);
     }
     
-    console.log(`Successfully deleted ${records.length} records from ${TABLE_NAME} table`);
 }
 
 // Function to clear all local user data
@@ -4742,7 +4657,6 @@ function clearAllLocalData() {
         filteredUsers = [];
         updateUserTable();
         updateCharts();
-        console.log('All local user data cleared');
         alert('Local user data cleared successfully');
     }
 }
@@ -4752,28 +4666,21 @@ window.clearAllLocalData = clearAllLocalData;
 
 function extractUserIds(data) {
     // Extract unique user_ids from the Supabase data
-    console.log('Raw Supabase data for user ID extraction:', data);
     
     // Check what fields are available in the first record
     if (data.length > 0) {
-        console.log('Available fields in first record:', Object.keys(data[0]));
-        console.log('First record user_id:', data[0].user_id);
     }
     
     const userIds = [...new Set(data.map(record => {
-        console.log(`Record ${record.id}: user_id = ${record.user_id}`);
         return record.user_id;
     }).filter(id => id != null))];
     
-    console.log('Extracted user IDs:', userIds);
     return userIds;
 }
 
 async function fetchUserNames(userIds) {
     // Send user_ids to N8N webhook and get back real names
     try {
-        console.log('Sending webhook request to N8N with user IDs:', userIds);
-        console.log('Webhook URL:', N8N_WEBHOOK_URL);
         
         const requestPayload = {
             user_ids: userIds,
@@ -4781,7 +4688,6 @@ async function fetchUserNames(userIds) {
             timestamp: new Date().toISOString()
         };
         
-        console.log('Request payload:', JSON.stringify(requestPayload, null, 2));
         
         const response = await fetch(N8N_WEBHOOK_URL, {
             method: 'POST',
@@ -4791,8 +4697,6 @@ async function fetchUserNames(userIds) {
             body: JSON.stringify(requestPayload)
         });
         
-        console.log('Response status:', response.status);
-        console.log('Response headers:', response.headers);
         
         if (!response.ok) {
             const errorText = await response.text();
@@ -4801,7 +4705,6 @@ async function fetchUserNames(userIds) {
         }
         
         const result = await response.json();
-        console.log('Webhook response (full):', JSON.stringify(result, null, 2));
         
         // Try different possible response formats
         let userNames = {};
@@ -4810,25 +4713,19 @@ async function fetchUserNames(userIds) {
         let dataArray = result;
         if (result.data && Array.isArray(result.data)) {
             dataArray = result.data;
-            console.log('Using data array from response');
         } else if (result.items && Array.isArray(result.items)) {
             dataArray = result.items;
-            console.log('Using items array from response');
         } else if (result.result && Array.isArray(result.result)) {
             dataArray = result.result;
-            console.log('Using result array from response');
         }
         
         if (result.user_names) {
             userNames = result.user_names;
-            console.log('Using user_names from response:', userNames);
         } else if (result.data && result.data.user_names) {
             userNames = result.data.user_names;
-            console.log('Using data.user_names from response:', userNames);
         } else if (Array.isArray(dataArray)) {
             // Handle N8N array format with "Employee Name" and "Employee Number"
             dataArray.forEach(item => {
-                console.log('Processing array item:', item);
                 
                 // Handle different possible field names
                 const employeeNumber = item["Employee Number"] || item.employee_number || item.Employee_Number;
@@ -4836,19 +4733,15 @@ async function fetchUserNames(userIds) {
                 
                 if (employeeNumber && employeeName) {
                     userNames[employeeNumber.toString()] = employeeName;
-                    console.log(`Mapped: ${employeeNumber} -> ${employeeName}`);
                 }
             });
-            console.log('Mapped array response to userNames:', userNames);
         } else {
-            console.warn('Unexpected webhook response format:', result);
             // Try to use the result directly if it looks like a user mapping
             if (typeof result === 'object' && result !== null) {
                 userNames = result;
             }
         }
         
-        console.log('Final userNames mapping:', userNames);
         return userNames;
         
     } catch (error) {
@@ -4860,7 +4753,6 @@ async function fetchUserNames(userIds) {
 
 function mergeUserRecords(userRecords, userId, userNames) {
     // Merge multiple activity records for the same user into a single user object
-    console.log(`Merging ${userRecords.length} records for user ${userId}`);
     
     let totalActiveTime = 0; // in seconds
     let totalInactiveTime = 0; // in seconds
@@ -4878,7 +4770,6 @@ function mergeUserRecords(userRecords, userId, userNames) {
             batchData = typeof record.batch_data === 'string' ? 
                 JSON.parse(record.batch_data) : record.batch_data || {};
         } catch (e) {
-            console.warn('Could not parse batch_data:', record.batch_data);
             batchData = {};
         }
         
@@ -4947,10 +4838,6 @@ function mergeUserRecords(userRecords, userId, userNames) {
                     latestActivity = recordActivity;
                 }
             } else {
-                console.warn(`Invalid date parsing for user ${userId}:`, {
-                    date_tracked: record.date_tracked,
-                    batch_end_time: record.batch_end_time
-                });
             }
         }
         
@@ -5013,7 +4900,6 @@ function mergeUserRecords(userRecords, userId, userNames) {
     const appsArray = Object.values(allApps).sort((a, b) => b.usage - a.usage);
     const websitesArray = Object.values(allWebsites).sort((a, b) => b.usage - a.usage);
     
-    console.log(`User ${realName}: ${totalActiveTime}s active, ${totalInactiveTime}s inactive, ${appsArray.length} apps, ${websitesArray.length} websites, lastActivity: ${latestActivity}`);
 
     return {
         id: userId.hashCode ? userId.hashCode() : Math.random() * 1000,
@@ -5050,10 +4936,8 @@ function processSupabaseData(data, userNames = {}) {
     //         total_time_seconds, active_time_seconds, inactive_time_seconds, batch_data, created_at
     // Group records by user_id to merge multiple sessions per user
     
-    console.log('Processing Supabase data:', data);
     
     if (data.length === 0) {
-        console.log('No data to process');
         return [];
     }
     
@@ -5070,12 +4954,10 @@ function processSupabaseData(data, userNames = {}) {
             userGroups[userId].push(record);
         });
         
-        console.log('Grouped data by user_id:', Object.keys(userGroups));
         
         // Process each user group to merge their activity data
         const processedUsers = Object.keys(userGroups).map(userId => {
             const userRecords = userGroups[userId];
-            console.log(`Processing ${userRecords.length} records for user ${userId}`);
             
             // Merge all records for this user
             const mergedUser = mergeUserRecords(userRecords, userId, userNames);
@@ -5084,7 +4966,6 @@ function processSupabaseData(data, userNames = {}) {
         
         // Return processed users instead of directly updating global array
         // This allows proper merging with persisted data
-        console.log(`Successfully processed ${processedUsers.length} activity records from Supabase data`);
         return processedUsers;
         
     } catch (error) {
@@ -5136,7 +5017,6 @@ function parseAppsData(appsData) {
         try {
             return JSON.parse(appsData);
         } catch (e) {
-            console.warn('Could not parse apps data:', appsData);
             return [];
         }
     } else if (Array.isArray(appsData)) {
@@ -5152,7 +5032,6 @@ function parseWebsitesData(websitesData) {
         try {
             return JSON.parse(websitesData);
         } catch (e) {
-            console.warn('Could not parse websites data:', websitesData);
             return [];
         }
     } else if (Array.isArray(websitesData)) {
@@ -5804,7 +5683,6 @@ async function initializeHeader() {
             if (sidebarUserName) sidebarUserName.textContent = userName;
             if (sidebarUserRole) sidebarUserRole.textContent = lawFirmName;
 
-            console.log('User profile updated:', { userName, lawFirmName });
         } else {
             throw new Error('No user data available');
         }
@@ -5857,15 +5735,12 @@ function setupUserDropdown() {
  * Only called when numberOfDays === 1
  */
 function renderActivityTimeline(user) {
-    console.log('Rendering activity timeline for user:', user.name);
 
     // Get the target date based on current period
     const targetDate = getTargetDateForTimeline();
-    console.log('Target date for timeline:', targetDate);
 
     // Generate timeline data (1440 minutes in a day)
     const timelineData = generateTimelineData(user, targetDate);
-    console.log('Timeline data generated:', timelineData.length, 'minutes');
 
     // Render the timeline on canvas
     drawTimelineCanvas(timelineData);
@@ -5922,22 +5797,18 @@ function generateTimelineData(user, targetDate) {
         return batchDate === targetDate || batchEndDate === targetDate;
     });
 
-    console.log('Found', dayBatches.length, 'batches for date:', targetDate);
 
     // Process each batch
     dayBatches.forEach((batch, batchIndex) => {
-        console.log(`Processing batch ${batchIndex}:`, batch);
 
         // Parse start and end times
         const startTime = parseTimeToMinutes(batch.s || batch.batch_start_time);
         const endTime = parseTimeToMinutes(batch.e || batch.batch_end_time);
 
         if (startTime === null || endTime === null) {
-            console.warn('Could not parse times for batch:', batch);
             return;
         }
 
-        console.log(`Batch time range: ${startTime} - ${endTime} minutes (${formatMinutesToTime(startTime)} - ${formatMinutesToTime(endTime)})`);
 
         // Calculate active/inactive ratio excluding LockApp
         let adjustedActiveTime = batch.at || 0;
@@ -5951,14 +5822,12 @@ function generateTimelineData(user, targetDate) {
                 // Subtract LockApp time from active time and add to inactive time
                 adjustedActiveTime = Math.max(0, adjustedActiveTime - lockAppTime);
                 adjustedInactiveTime += lockAppTime;
-                console.log(`Excluding LockApp time: ${lockAppTime}s from batch ${batchIndex}`);
             }
         }
 
         const totalSeconds = adjustedActiveTime + adjustedInactiveTime;
         const activeRatio = totalSeconds > 0 ? adjustedActiveTime / totalSeconds : 0;
 
-        console.log(`Active ratio: ${(activeRatio * 100).toFixed(1)}% (adjusted for LockApp)`);
 
         // Fill timeline minutes
         const batchDuration = endTime - startTime;
@@ -6007,7 +5876,6 @@ function parseTimeToMinutes(timeStr) {
             }
         }
     } catch (e) {
-        console.warn('Error parsing time:', timeStr, e);
     }
 
     return null;
@@ -6146,7 +6014,6 @@ let filteredCalisanlarData = [];
 let userToDelete = null;
 
 function setupCalisanlarPage() {
-    console.log('Setting up Çalışanlar page...');
     loadCalisanlarData();
     setupCalisanlarEventListeners();
 }
@@ -6155,10 +6022,8 @@ function loadCalisanlarData() {
     // Always load fresh from localStorage to ensure we have all users
     const allUsers = loadPersistedUsers();
 
-    console.log('Loading Çalışanlar data...', allUsers ? allUsers.length : 0, 'users found');
 
     if (!allUsers || allUsers.length === 0) {
-        console.log('No users found in localStorage');
         calisanlarData = [];
         filteredCalisanlarData = [];
         renderCalisanlarTable();
@@ -6244,7 +6109,6 @@ function loadCalisanlarData() {
                     }
                 }
             } catch (error) {
-                console.warn('Error processing batchIds for user:', user.name, error);
             }
         }
 
@@ -6266,7 +6130,6 @@ function loadCalisanlarData() {
     });
 
     filteredCalisanlarData = [...calisanlarData];
-    console.log('Çalışanlar data loaded:', calisanlarData.length, 'users');
     // Apply default A-Z sorting
     sortCalisanlarData('name-az');
     renderCalisanlarTable();
@@ -6414,8 +6277,6 @@ function renderCalisanlarTable() {
     const tbody = document.getElementById('calisanlar-tbody');
     const countElement = document.getElementById('calisanlar-count');
 
-    console.log('Rendering Çalışanlar table...', filteredCalisanlarData.length, 'users to display');
-    console.log('tbody element found:', !!tbody);
 
     if (!tbody) {
         console.error('Çalışanlar tbody element not found!');
@@ -6534,7 +6395,6 @@ function showDeleteUserModal(userId, userName) {
 }
 
 function performUserDeletion(userId) {
-    console.log(`Deleting user: ${userId}`);
 
     // Load current persisted users
     const persistedUsers = loadPersistedUsers();
@@ -6589,7 +6449,6 @@ function loadTeams() {
         const stored = localStorage.getItem(TEAMS_STORAGE_KEY);
         if (stored) {
             teamsData = JSON.parse(stored);
-            console.log('Teams loaded from localStorage:', teamsData.length);
         } else {
             teamsData = [];
         }
@@ -6605,7 +6464,6 @@ function loadTeams() {
 function saveTeams(teams) {
     try {
         localStorage.setItem(TEAMS_STORAGE_KEY, JSON.stringify(teams));
-        console.log('Teams saved to localStorage:', teams.length);
         return true;
     } catch (error) {
         console.error('Error saving teams:', error);
@@ -6615,7 +6473,6 @@ function saveTeams(teams) {
 
 // Setup Ekipler page
 function setupEkiplerPage() {
-    console.log('Setting up Ekipler page...');
     loadTeams();
     filteredTeamsData = [...teamsData];
     renderTeamsGrid();
@@ -6626,10 +6483,8 @@ function setupEkiplerPage() {
 function setupEkiplerEventListeners() {
     // Create team button
     const createTeamBtn = document.getElementById('create-team-btn');
-    console.log('Create team button found:', !!createTeamBtn);
     if (createTeamBtn) {
         createTeamBtn.addEventListener('click', () => {
-            console.log('Create team button clicked!');
             openCreateTeamModal();
         });
     } else {
@@ -6830,13 +6685,10 @@ function renderTeamsGrid() {
 
 // Open create team modal
 function openCreateTeamModal() {
-    console.log('openCreateTeamModal called');
     currentEditingTeam = null;
     const modal = document.getElementById('team-modal');
     const title = document.getElementById('team-modal-title');
 
-    console.log('Modal element found:', !!modal);
-    console.log('Title element found:', !!title);
 
     if (title) title.textContent = 'Yeni Ekip Oluştur';
 
@@ -6848,7 +6700,6 @@ function openCreateTeamModal() {
 
     // Show modal
     if (modal) {
-        console.log('Adding show class to modal');
         modal.classList.add('show');
     } else {
         console.error('Modal element not found!');
@@ -7260,7 +7111,6 @@ function saveUsername(event) {
     const success = window.userNameMapping.setDisplayName(currentEditingPCName, customName);
     
     if (success) {
-        console.log(`[Username] Mapping saved: ${currentEditingPCName} -> ${customName}`);
 
         // Refresh the table and charts
         updateUserTable();
@@ -7301,7 +7151,6 @@ function deleteUserMapping(pcName) {
         const success = window.userNameMapping.removeMapping(pcName);
         
         if (success) {
-            console.log(`[Username] Mapping removed for: ${pcName}`);
 
             // Refresh the table and charts
             updateUserTable();
@@ -7345,4 +7194,3 @@ document.addEventListener('keydown', function(event) {
     }
 });
 
-console.log('[Username Mapping] Functions loaded');
