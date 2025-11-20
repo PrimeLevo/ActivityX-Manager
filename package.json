@@ -67,7 +67,11 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
     },
-    "publish": null
+    "publish": {
+      "provider": "github",
+      "owner": "PrimeLevo",
+      "repo": "ActivityX-Manager"
+    }
   },
   "keywords": [
     "activity",
