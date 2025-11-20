@@ -1,0 +1,99 @@
+<!-- Dashboard Header with Date Filter -->
+<div class="dashboard-header">
+    <div class="dashboard-controls">
+        <div class="time-period-selector">
+            <button class="btn btn-secondary" data-period="daily">Bugün</button>
+            <button class="btn btn-secondary active" data-period="weekly">Haftalık</button>
+            <button class="btn btn-secondary" data-period="monthly">Aylık</button>
+            <button class="btn btn-secondary" data-period="annual">Yıllık</button>
+            <div class="custom-date-wrapper">
+                <button class="btn btn-secondary" data-period="custom" id="dashboard-custom-btn">Özel</button>
+                <div class="custom-date-popup" id="dashboard-custom-date-selector" style="display: none;">
+                    <div class="popup-arrow"></div>
+                    <div class="popup-content">
+                        <div class="date-range-container">
+                            <div class="date-row">
+                                <label for="dashboard-start-date-display" class="date-label">Başlangıç</label>
+                                <div class="date-input-wrapper" style="position: relative; width: 160px;">
+                                    <div class="date-input-custom" id="dashboard-start-date-display">
+                                        <span class="date-text">Tarih seçin</span>
+                                        <svg class="calendar-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                                        </svg>
+                                    </div>
+                                    <div class="calendar-wrapper" id="dashboard-start-calendar-wrapper">
+                                        <div class="custom-calendar" id="dashboard-start-calendar"></div>
+                                    </div>
+                                </div>
+                                <button class="btn btn-secondary btn-sm" id="dashboard-cancel-date-range">İptal Et</button>
+                            </div>
+                            <div class="date-row">
+                                <label for="dashboard-end-date-display" class="date-label">Bitiş</label>
+                                <div class="date-input-wrapper" style="position: relative; width: 160px;">
+                                    <div class="date-input-custom" id="dashboard-end-date-display">
+                                        <span class="date-text">Tarih seçin</span>
+                                        <svg class="calendar-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                                        </svg>
+                                    </div>
+                                    <div class="calendar-wrapper" id="dashboard-end-calendar-wrapper">
+                                        <div class="custom-calendar" id="dashboard-end-calendar"></div>
+                                    </div>
+                                </div>
+                                <button class="btn btn-primary btn-sm" id="dashboard-apply-date-range">Uygula</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <button class="btn btn-primary" id="dashboard-refresh-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            Verileri Güncelle
+        </button>
+    </div>
+</div>
+
+<!-- Charts Section -->
+<section class="charts-section">
+    <div class="chart-container chart-container-wide">
+        <div class="chart-header">
+            <h3 id="activity-chart-title">Aktivite Genel Bakış</h3>
+        </div>
+        <canvas id="activity-chart"></canvas>
+    </div>
+    <div class="chart-container">
+        <div class="chart-header">
+            <h3 id="top-users-chart-title">En Aktif Kullanıcılar</h3>
+        </div>
+        <canvas id="top-users-chart"></canvas>
+    </div>
+    <div class="chart-container">
+        <div class="chart-header">
+            <h3 id="apps-chart-title">Uygulama Kullanım Dağılımı</h3>
+        </div>
+        <canvas id="apps-chart"></canvas>
+    </div>
+    <div class="chart-container">
+        <div class="chart-header">
+            <h3 id="websites-chart-title">Web Sitesi Kullanım Dağılımı</h3>
+        </div>
+        <canvas id="websites-chart"></canvas>
+    </div>
+    <div class="chart-container">
+        <div class="chart-header">
+            <h3 id="daily-trend-chart-title">Günlük Ortalama Aktivite Trendi</h3>
+        </div>
+        <canvas id="daily-trend-chart"></canvas>
+    </div>
+</section>

@@ -1,0 +1,198 @@
+<!-- Reports Page -->
+<section class="reports-section">
+    <!-- Action Bar -->
+    <div class="reports-action-bar">
+        <button class="btn btn-primary btn-large" id="open-report-modal-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="12" y1="11" x2="12" y2="17"></line>
+                <line x1="9" y1="14" x2="15" y2="14"></line>
+            </svg>
+            <span>Yeni Rapor Oluştur</span>
+        </button>
+    </div>
+
+    <!-- Report History Section -->
+    <div class="report-history-container">
+        <div class="history-header">
+            <h3>Rapor Geçmişi</h3>
+            <div class="history-actions">
+                <button class="btn btn-secondary btn-small" id="clear-history-btn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                    <span>Geçmişi Temizle</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="history-list" id="history-list">
+            <!-- Report history items will be populated here -->
+            <div class="empty-history" id="empty-history">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                </svg>
+                <p>Henüz rapor oluşturulmamış</p>
+                <span>Yukarıdaki filtreleri kullanarak ilk raporunuzu oluşturun</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Report Generation Modal -->
+<div class="modal" id="report-generation-modal">
+    <div class="modal-content report-generation-modal">
+        <div class="modal-header">
+            <h3>Yeni Rapor Oluştur</h3>
+            <button class="modal-close" id="close-generation-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <!-- Date Range Selection with Turkish Calendar -->
+            <div class="modal-section">
+                <label class="modal-label">Tarih Aralığı</label>
+                <div class="date-range-selector">
+                    <div class="date-selector-item">
+                        <label class="date-label">Başlangıç Tarihi</label>
+                        <div class="date-display" id="report-start-date-display">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="16" y1="2" x2="16" y2="6"></line>
+                                <line x1="8" y1="2" x2="8" y2="6"></line>
+                                <line x1="3" y1="10" x2="21" y2="10"></line>
+                            </svg>
+                            <span id="report-start-date-text">Tarih Seçin</span>
+                        </div>
+                        <div class="calendar-wrapper" id="report-start-calendar-wrapper" style="display: none;">
+                            <div class="custom-calendar" id="report-start-calendar"></div>
+                        </div>
+                    </div>
+                    <div class="date-selector-item">
+                        <label class="date-label">Bitiş Tarihi</label>
+                        <div class="date-display" id="report-end-date-display">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="16" y1="2" x2="16" y2="6"></line>
+                                <line x1="8" y1="2" x2="8" y2="6"></line>
+                                <line x1="3" y1="10" x2="21" y2="10"></line>
+                            </svg>
+                            <span id="report-end-date-text">Tarih Seçin</span>
+                        </div>
+                        <div class="calendar-wrapper" id="report-end-calendar-wrapper" style="display: none;">
+                            <div class="custom-calendar" id="report-end-calendar"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Selection -->
+            <div class="modal-section">
+                <label class="modal-label">Kullanıcı Seçimi</label>
+                <div class="user-selection-container">
+                    <div class="selection-type-buttons">
+                        <button class="selection-btn active" data-selection="all">Tüm Kullanıcılar</button>
+                        <button class="selection-btn" data-selection="specific">Belirli Kullanıcılar</button>
+                        <button class="selection-btn" data-selection="team">Ekip Bazlı</button>
+                    </div>
+
+                    <!-- Specific Users Selection (Hidden by default) -->
+                    <div class="specific-users-container" id="specific-users-container" style="display: none;">
+                        <div class="users-search-box">
+                            <input type="text" id="users-search" placeholder="Kullanıcı ara..." class="users-search-input">
+                            <button class="select-all-btn" id="select-all-users">Tümünü Seç</button>
+                            <button class="clear-all-btn" id="clear-all-users">Temizle</button>
+                        </div>
+                        <div class="users-list" id="users-list">
+                            <!-- User checkboxes will be populated here dynamically -->
+                        </div>
+                        <div class="selected-count">
+                            <span id="selected-users-count">0 kullanıcı seçildi</span>
+                        </div>
+                    </div>
+
+                    <!-- Team Selection (Hidden by default) -->
+                    <div class="team-selection-container" id="team-selection-container" style="display: none;">
+                        <select id="team-select" class="team-select">
+                            <option value="">Ekip Seçin...</option>
+                            <!-- Teams will be populated here dynamically -->
+                        </select>
+                        <div class="team-info" id="team-info" style="display: none;">
+                            <span class="team-member-count"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Report Content Options -->
+            <div class="modal-section">
+                <label class="modal-label">Rapor İçeriği</label>
+                <div class="report-content-options">
+                    <div class="checkbox-option">
+                        <input type="checkbox" id="include-apps" checked>
+                        <label for="include-apps">Kullanıcı Bazlı Uygulama Kullanımı</label>
+                    </div>
+                    <div class="checkbox-option">
+                        <input type="checkbox" id="include-websites" checked>
+                        <label for="include-websites">Kullanıcı Bazlı Web Sitesi Kullanımı</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Generate Button -->
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="cancel-report-generation">İptal</button>
+                <button class="btn btn-primary" id="generate-report-btn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                    </svg>
+                    <span>Rapor Oluştur</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Report Preview Modal -->
+<div class="modal" id="report-preview-modal">
+    <div class="modal-content report-preview-modal">
+        <div class="modal-header">
+            <h3 id="preview-title">Rapor Önizleme</h3>
+            <div class="modal-header-buttons">
+                <button class="btn btn-primary btn-small" id="download-csv-btn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    <span>CSV İndir</span>
+                </button>
+                <button class="modal-close" id="close-preview">&times;</button>
+            </div>
+        </div>
+        <div class="modal-body">
+            <div class="report-preview-content" id="report-preview-content">
+                <!-- Report preview will be displayed here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Clear History Confirmation Modal -->
+<div class="modal" id="clear-history-modal">
+    <div class="modal-content confirm-modal">
+        <div class="modal-header">
+            <h3>Rapor Geçmişini Temizle</h3>
+        </div>
+        <div class="modal-body">
+            <p>Tüm rapor geçmişini silmek istediğinize emin misiniz?</p>
+            <p style="color: #dc3545; margin-top: 10px;">Bu işlem geri alınamaz.</p>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="cancel-clear-history">İptal</button>
+                <button class="btn btn-danger" id="confirm-clear-history">Temizle</button>
+            </div>
+        </div>
+    </div>
+</div>

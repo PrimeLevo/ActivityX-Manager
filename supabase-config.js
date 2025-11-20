@@ -137,7 +137,8 @@ async function signInUser(email, password) {
                 profile: {
                     ...profileData,
                     law_firm_name: profileData.law_firms?.name || 'Hukuk Bürosu'
-                }
+                },
+                session: authData.session  // Include the session with tokens!
             }
         }
     } catch (error) {
@@ -165,10 +166,21 @@ async function signOutUser() {
 
 async function getCurrentUser() {
     try {
-        // Get current authenticated user
+        // Get current authenticated user AND session
         const { data: { user }, error: authError } = await supabase.auth.getUser();
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+        console.log('[getCurrentUser] User exists:', !!user);
+        console.log('[getCurrentUser] Session exists:', !!session);
+        console.log('[getCurrentUser] Has access token:', !!session?.access_token);
 
         if (authError || !user) {
+            console.error('[getCurrentUser] Auth error or no user:', authError);
+            return null;
+        }
+
+        if (sessionError || !session) {
+            console.error('[getCurrentUser] Session error or no session:', sessionError);
             return null;
         }
 
@@ -179,10 +191,10 @@ async function getCurrentUser() {
             .eq('id', user.id)
             .single();
 
-        console.log('getCurrentUser - Profile query result:', { profileData, profileError });
+        console.log('[getCurrentUser] Profile query result:', { profileData, profileError });
 
         if (profileError || !profileData) {
-            console.error('getCurrentUser - Profile error:', profileError);
+            console.error('[getCurrentUser] Profile error:', profileError);
             return null;
         }
 
@@ -195,7 +207,7 @@ async function getCurrentUser() {
                 .eq('id', profileData.law_firm_id)
                 .single();
 
-            console.log('Law firm query result:', { lawFirmData, lawFirmError });
+            console.log('[getCurrentUser] Law firm query result:', { lawFirmData, lawFirmError });
 
             if (lawFirmData && !lawFirmError) {
                 lawFirmName = lawFirmData.name;
@@ -204,67 +216,98 @@ async function getCurrentUser() {
 
         const result = {
             ...user,
+            session: session,  // IMPORTANT: Include the session with access token
             profile: {
                 ...profileData,
                 law_firm_name: lawFirmName
             }
         };
 
-        console.log('getCurrentUser - Final result:', result);
-        console.log('Law firm name used:', lawFirmName);
+        console.log('[getCurrentUser] Final result with session:', {
+            hasUser: !!result,
+            hasSession: !!result.session,
+            hasAccessToken: !!result.session?.access_token
+        });
 
         return result;
     } catch (error) {
-        console.error('Get current user error:', error);
+        console.error('[getCurrentUser] Exception:', error);
         return null;
     }
 }
 
-async function changePassword(newPassword, accessToken) {
+async function changePassword(newPassword, accessToken, refreshToken) {
     try {
-        console.log('changePassword called with new password and access token');
+        console.log('[Supabase] changePassword called');
+        console.log('[Supabase] Has access token:', !!accessToken);
+        console.log('[Supabase] Has refresh token:', !!refreshToken);
 
-        // Set the session using the access token
-        const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: '' // We'll get this from getSession
-        });
+        // Set the session using both access and refresh tokens
+        if (accessToken && refreshToken) {
+            console.log('[Supabase] Setting session with provided tokens');
+            const { data: sessionData, error: setSessionError } = await supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken
+            });
 
-        if (sessionError) {
-            console.error('Session error:', sessionError);
+            if (setSessionError) {
+                console.error('[Supabase] Error setting session:', setSessionError);
+                return {
+                    success: false,
+                    error: 'Oturum kurulamadı. Lütfen tekrar giriş yapınız.'
+                };
+            }
+
+            console.log('[Supabase] Session set successfully:', !!sessionData.session);
+        }
+
+        // Verify we have an active session now
+        const { data: { session }, error: getSessionError } = await supabase.auth.getSession();
+
+        if (getSessionError || !session) {
+            console.error('[Supabase] No active session after setup:', getSessionError);
             return {
                 success: false,
-                message: 'Oturum hatası. Lütfen tekrar giriş yapınız.'
+                error: 'Aktif oturum bulunamadı. Lütfen tekrar giriş yapınız.'
             };
         }
+
+        console.log('[Supabase] Active session confirmed, updating password');
 
         // Update user password - Supabase official method
         const { data, error } = await supabase.auth.updateUser({
             password: newPassword
         });
 
-        console.log('Supabase updateUser response:', { data, error });
+        console.log('[Supabase] Update response:', {
+            success: !!data && !error,
+            hasData: !!data,
+            hasError: !!error,
+            errorMessage: error?.message
+        });
 
         if (error) {
-            console.error('Change password error:', error);
-            console.error('Error details:', JSON.stringify(error, null, 2));
+            console.error('[Supabase] Password update error:', error);
+            console.error('[Supabase] Error details:', JSON.stringify(error, null, 2));
+
+            // Return consistent error structure
             return {
                 success: false,
-                message: translateAuthError(error.message)
+                error: translateAuthError(error.message)
             };
         }
 
-        console.log('Password updated successfully');
+        console.log('[Supabase] Password updated successfully');
         return {
             success: true,
             message: 'Şifre başarıyla değiştirildi.'
         };
     } catch (error) {
-        console.error('Change password exception:', error);
-        console.error('Exception stack:', error.stack);
+        console.error('[Supabase] Change password exception:', error);
+        console.error('[Supabase] Exception stack:', error.stack);
         return {
             success: false,
-            message: 'Bir hata oluştu. Lütfen tekrar deneyiniz.'
+            error: error.message || 'Bir hata oluştu. Lütfen tekrar deneyiniz.'
         };
     }
 }

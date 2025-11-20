@@ -1,6 +1,15 @@
 const { app, BrowserWindow, Menu, ipcMain } = require('electron');
 const path = require('path');
 
+// Enable hot reload in development
+const isDev = process.argv.includes('--dev');
+if (isDev) {
+  require('electron-reload')(__dirname, {
+    electron: path.join(__dirname, 'node_modules', '.bin', 'electron'),
+    hardResetMethod: 'exit'
+  });
+}
+
 let mainWindow;
 
 function createWindow() {
@@ -282,31 +291,86 @@ ipcMain.handle('get-current-user', async (event) => {
   }
 });
 
-ipcMain.handle('change-password', async (event, passwords) => {
+// New handler to get session tokens directly from saved session file
+ipcMain.handle('get-session-tokens', async (event) => {
   try {
-    // Read the current session to get the access token
-    let accessToken = null;
+    console.log('[Main] get-session-tokens called');
+    console.log('[Main] Session file path:', sessionPath);
+    console.log('[Main] Session file exists:', fs.existsSync(sessionPath));
 
-    if (fs.existsSync(sessionPath)) {
-      const sessionData = JSON.parse(fs.readFileSync(sessionPath, 'utf8'));
-      // The access token should be in the user session
-      accessToken = sessionData.user?.session?.access_token;
-
-      console.log('Session data:', sessionData);
-      console.log('Access token found:', !!accessToken);
+    if (!fs.existsSync(sessionPath)) {
+      console.log('[Main] No session file found');
+      return null;
     }
 
-    if (!accessToken) {
-      console.error('No access token found in session');
+    // Read the session file directly
+    const fileContent = fs.readFileSync(sessionPath, 'utf8');
+    const sessionData = JSON.parse(fileContent);
+
+    console.log('[Main] Session data keys:', Object.keys(sessionData));
+    console.log('[Main] Has user:', !!sessionData.user);
+
+    // The session might be stored in different structures depending on how it was saved
+    let accessToken = null;
+    let refreshToken = null;
+
+    // Try different possible structures
+    if (sessionData.user && sessionData.user.session) {
+      // Structure: { user: { session: { access_token, refresh_token } } }
+      accessToken = sessionData.user.session.access_token;
+      refreshToken = sessionData.user.session.refresh_token;
+      console.log('[Main] Found tokens in user.session');
+    } else if (sessionData.session) {
+      // Structure: { session: { access_token, refresh_token } }
+      accessToken = sessionData.session.access_token;
+      refreshToken = sessionData.session.refresh_token;
+      console.log('[Main] Found tokens in session');
+    } else if (sessionData.access_token) {
+      // Structure: { access_token, refresh_token }
+      accessToken = sessionData.access_token;
+      refreshToken = sessionData.refresh_token;
+      console.log('[Main] Found tokens at root level');
+    }
+
+    if (accessToken && refreshToken) {
+      console.log('[Main] Session tokens retrieved successfully');
       return {
-        success: false,
-        message: 'Oturum bulunamadı. Lütfen tekrar giriş yapınız.'
+        access_token: accessToken,
+        refresh_token: refreshToken
       };
     }
 
-    const result = await changePassword(passwords.newPassword, accessToken);
+    console.log('[Main] No tokens found in session file');
+    return null;
+  } catch (error) {
+    console.error('[Main] Error getting session tokens:', error);
+    return null;
+  }
+});
+
+ipcMain.handle('change-password', async (event, passwordData) => {
+  try {
+    console.log('[Main] Change password request received');
+
+    // Extract passwords and session tokens
+    const { currentPassword, newPassword, accessToken, refreshToken } = passwordData;
+
+    if (!accessToken) {
+      console.error('[Main] No access token provided');
+      return {
+        success: false,
+        error: 'Oturum bulunamadı. Lütfen tekrar giriş yapınız.'
+      };
+    }
+
+    console.log('[Main] Access token provided:', !!accessToken);
+    console.log('[Main] Refresh token provided:', !!refreshToken);
+
+    console.log('[Main] Calling changePassword with tokens');
+    const result = await changePassword(newPassword, accessToken, refreshToken);
 
     if (result.success) {
+      console.log('[Main] Password changed successfully, signing out user');
       // Sign out user after successful password change
       await signOutUser();
       clearAuthSession();
@@ -315,14 +379,16 @@ ipcMain.handle('change-password', async (event, passwords) => {
       if (mainWindow) {
         mainWindow.loadFile('auth.html');
       }
+    } else {
+      console.log('[Main] Password change failed:', result.error || result.message);
     }
 
     return result;
   } catch (error) {
-    console.error('Error changing password:', error);
+    console.error('[Main] Error changing password:', error);
     return {
       success: false,
-      message: 'Bir hata oluştu. Lütfen tekrar deneyiniz.'
+      error: error.message || 'Bir hata oluştu. Lütfen tekrar deneyiniz.'
     };
   }
 });

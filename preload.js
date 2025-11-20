@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   authSuccess: (userData) => ipcRenderer.invoke('auth-success', userData),
   getUserSession: () => ipcRenderer.invoke('get-user-session'),
   getCurrentUser: () => ipcRenderer.invoke('get-current-user'),
+  getSessionTokens: () => ipcRenderer.invoke('get-session-tokens'),
   changePassword: (passwords) => ipcRenderer.invoke('change-password', passwords),
   authLogout: () => ipcRenderer.invoke('auth-logout')
 });

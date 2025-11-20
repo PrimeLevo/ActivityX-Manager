@@ -398,17 +398,29 @@ let filteredUsers = [];
 let currentPeriod = 'weekly';
 let customStartDate = null;
 let customEndDate = null;
-let activityChart, appsChart, modalAppsChart, modalWebsitesChart;
+let currentTeamFilter = ''; // Track selected team for filtering
+let activityChart, appsChart, websitesChart, topUsersChart, dailyTrendChart, modalAppsChart, modalWebsitesChart;
 
 // Local persistence for cumulative data
 const STORAGE_KEY = 'kta_persisted_users_v1';
+window.STORAGE_KEY = STORAGE_KEY; // Make it globally accessible
 
 function loadPersistedUsers() {
     try {
         const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return [];
+
+        if (!raw) {
+            return [];
+        }
+
         const parsed = JSON.parse(raw);
-        return Array.isArray(parsed) ? parsed.map(u => {
+
+        if (!Array.isArray(parsed)) {
+            console.warn('[Storage] Invalid data format in localStorage');
+            return [];
+        }
+
+        const cleanedUsers = parsed.map(u => {
             // Clean website titles in persisted data
             const cleanedUser = {
                 ...u,
@@ -424,9 +436,11 @@ function loadPersistedUsers() {
             }
 
             return cleanedUser;
-        }) : [];
+        });
+
+        return cleanedUsers;
     } catch (e) {
-        console.warn('Failed to load persisted users:', e);
+        console.error('[Storage] Failed to load data:', e.message);
         return [];
     }
 }
@@ -740,12 +754,435 @@ function getActiveTimeForPeriod(user) {
     return 0;
 }
 
+// Setup dashboard page functionality
+function setupDashboardPage() {
+    // Note: Dashboard page keeps its own filters (team filter, search)
+    // They are intentionally preserved when navigating back to dashboard
+
+    // Reload data from localStorage to ensure we have the latest data
+    const persisted = loadPersistedUsers();
+
+    if (persisted && persisted.length > 0) {
+        users = persisted.map(user => {
+            if (user.batchIds && user.batchIds.length > 0) {
+                user.websites = processUserWebsites(user);
+            }
+            return user;
+        });
+        filteredUsers = [...users];
+        filterUsersByDateRange();
+        updateCharts(); // Render charts with loaded data
+    } else {
+        users = [];
+        filteredUsers = [];
+        // Still call updateCharts to show empty state
+        updateCharts();
+    }
+
+    // Setup time period selector for dashboard
+    const periodButtons = document.querySelectorAll('.dashboard-controls [data-period]');
+    periodButtons.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const customDateSelector = document.getElementById('dashboard-custom-date-selector');
+
+            if (this.dataset.period === 'custom') {
+                // Toggle custom popup
+                const isVisible = customDateSelector && customDateSelector.style.display === 'block';
+                if (isVisible) {
+                    hideDashboardCustomDatePopup();
+                } else {
+                    showDashboardCustomDatePopup();
+                }
+            } else {
+                // Hide custom popup if visible
+                if (customDateSelector) {
+                    customDateSelector.style.display = 'none';
+                }
+
+                // Update active button
+                periodButtons.forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+
+                // Set the global period and filter
+                currentPeriod = this.dataset.period;
+                customStartDate = null;
+                customEndDate = null;
+                filterUsersByDateRange();
+                updateCharts();
+            }
+        });
+    });
+
+    // Setup refresh button
+    const refreshBtn = document.getElementById('dashboard-refresh-btn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+            const refreshModal = document.getElementById('refresh-modal');
+            if (refreshModal) {
+                refreshModal.style.display = 'flex';
+            }
+        });
+    }
+
+    // Setup refresh modal buttons
+    const refreshConfirmBtn = document.getElementById('refresh-confirm');
+    const refreshCancelBtn = document.getElementById('refresh-cancel');
+    const refreshModal = document.getElementById('refresh-modal');
+
+    if (refreshConfirmBtn) {
+        refreshConfirmBtn.addEventListener('click', () => {
+            if (refreshModal) {
+                refreshModal.style.display = 'none';
+            }
+            showLoadingPopup('Veriler güncelleniyor...');
+            loadAllUserData();
+        });
+    }
+
+    if (refreshCancelBtn) {
+        refreshCancelBtn.addEventListener('click', () => {
+            if (refreshModal) {
+                refreshModal.style.display = 'none';
+            }
+        });
+    }
+
+    // Close refresh modal when clicking outside
+    if (refreshModal) {
+        refreshModal.addEventListener('click', (e) => {
+            if (e.target === refreshModal) {
+                refreshModal.style.display = 'none';
+            }
+        });
+    }
+
+    // Setup custom date range buttons
+    const applyBtn = document.getElementById('dashboard-apply-date-range');
+    const cancelBtn = document.getElementById('dashboard-cancel-date-range');
+
+    if (applyBtn) {
+        applyBtn.addEventListener('click', () => {
+            applyDashboardDateRange();
+        });
+    }
+
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => {
+            hideDashboardCustomDatePopup();
+        });
+    }
+
+    // Initialize calendars for dashboard
+    initializeDashboardCalendars();
+}
+
+function showDashboardCustomDatePopup() {
+    const popup = document.getElementById('dashboard-custom-date-selector');
+    if (popup) {
+        popup.style.display = 'block';
+    }
+}
+
+function hideDashboardCustomDatePopup() {
+    const popup = document.getElementById('dashboard-custom-date-selector');
+    if (popup) {
+        popup.style.display = 'none';
+    }
+}
+
+function applyDashboardDateRange() {
+    if (!selectedStartDate || !selectedEndDate) {
+        alert('Lütfen başlangıç ve bitiş tarihlerini seçin');
+        return;
+    }
+
+    // Update active button
+    const periodButtons = document.querySelectorAll('.dashboard-controls [data-period]');
+    periodButtons.forEach(b => b.classList.remove('active'));
+    document.getElementById('dashboard-custom-btn').classList.add('active');
+
+    // Apply filter using the correct global variables
+    currentPeriod = 'custom';
+    customStartDate = selectedStartDate;
+    customEndDate = selectedEndDate;
+    filterUsersByDateRange();
+    updateCharts();
+    hideDashboardCustomDatePopup();
+}
+
+// Local variables for dashboard calendar
+let selectedStartDate = null;
+let selectedEndDate = null;
+let dashboardStartCalendar = null;
+let dashboardEndCalendar = null;
+
+function initializeDashboardCalendars() {
+    const today = new Date();
+    const oneYearAgo = new Date(today.getTime() - (365 * 24 * 60 * 60 * 1000));
+
+    // Initialize start date calendar
+    dashboardStartCalendar = new TurkishCalendar('dashboard-start-calendar', {
+        type: 'range-start',
+        minDate: oneYearAgo,
+        maxDate: today,
+        rangeStart: customStartDate,
+        rangeEnd: customEndDate,
+        onSelect: (date) => {
+            selectedStartDate = date;
+            const displayElement = document.getElementById('dashboard-start-date-display');
+            const dateText = displayElement.querySelector('.date-text');
+            dateText.textContent = dashboardStartCalendar.formatDateTurkish(date);
+
+            // Update both calendars to show range
+            if (selectedEndDate && date > selectedEndDate) {
+                selectedEndDate = date;
+                const endDisplayElement = document.getElementById('dashboard-end-date-display');
+                const endDateText = endDisplayElement.querySelector('.date-text');
+                endDateText.textContent = dashboardEndCalendar.formatDateTurkish(date);
+            }
+
+            if (dashboardEndCalendar) {
+                dashboardEndCalendar.setRangeStart(date);
+                dashboardEndCalendar.setRangeEnd(selectedEndDate);
+            }
+            dashboardStartCalendar.setRangeStart(date);
+            dashboardStartCalendar.setRangeEnd(selectedEndDate);
+
+            // Close calendar
+            document.getElementById('dashboard-start-calendar-wrapper').style.display = 'none';
+        }
+    });
+
+    // Initialize end date calendar
+    dashboardEndCalendar = new TurkishCalendar('dashboard-end-calendar', {
+        type: 'range-end',
+        minDate: oneYearAgo,
+        maxDate: today,
+        rangeStart: customStartDate,
+        rangeEnd: customEndDate,
+        onSelect: (date) => {
+            selectedEndDate = date;
+            const displayElement = document.getElementById('dashboard-end-date-display');
+            const dateText = displayElement.querySelector('.date-text');
+            dateText.textContent = dashboardEndCalendar.formatDateTurkish(date);
+
+            // Update both calendars to show range
+            if (selectedStartDate && date < selectedStartDate) {
+                selectedStartDate = date;
+                const startDisplayElement = document.getElementById('dashboard-start-date-display');
+                const startDateText = startDisplayElement.querySelector('.date-text');
+                startDateText.textContent = dashboardStartCalendar.formatDateTurkish(date);
+            }
+
+            if (dashboardStartCalendar) {
+                dashboardStartCalendar.setRangeStart(selectedStartDate);
+                dashboardStartCalendar.setRangeEnd(date);
+            }
+            dashboardEndCalendar.setRangeStart(selectedStartDate);
+            dashboardEndCalendar.setRangeEnd(date);
+
+            // Close calendar
+            document.getElementById('dashboard-end-calendar-wrapper').style.display = 'none';
+        }
+    });
+
+    // Setup click handlers for date displays
+    const startDateDisplay = document.getElementById('dashboard-start-date-display');
+    const endDateDisplay = document.getElementById('dashboard-end-date-display');
+
+    if (startDateDisplay) {
+        startDateDisplay.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const wrapper = document.getElementById('dashboard-start-calendar-wrapper');
+            const endWrapper = document.getElementById('dashboard-end-calendar-wrapper');
+            if (wrapper.style.display === 'block') {
+                wrapper.style.display = 'none';
+            } else {
+                wrapper.style.display = 'block';
+                if (endWrapper) endWrapper.style.display = 'none';
+            }
+        });
+    }
+
+    if (endDateDisplay) {
+        endDateDisplay.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const wrapper = document.getElementById('dashboard-end-calendar-wrapper');
+            const startWrapper = document.getElementById('dashboard-start-calendar-wrapper');
+            if (wrapper.style.display === 'block') {
+                wrapper.style.display = 'none';
+            } else {
+                wrapper.style.display = 'block';
+                if (startWrapper) startWrapper.style.display = 'none';
+            }
+        });
+    }
+
+    // Close calendars when clicking outside
+    document.addEventListener('click', (e) => {
+        const startWrapper = document.getElementById('dashboard-start-calendar-wrapper');
+        const endWrapper = document.getElementById('dashboard-end-calendar-wrapper');
+        const startDateDisplay = document.getElementById('dashboard-start-date-display');
+        const endDateDisplay = document.getElementById('dashboard-end-date-display');
+
+        if (startWrapper && startDateDisplay && !startDateDisplay.contains(e.target) && !startWrapper.contains(e.target)) {
+            startWrapper.style.display = 'none';
+        }
+        if (endWrapper && endDateDisplay && !endDateDisplay.contains(e.target) && !endWrapper.contains(e.target)) {
+            endWrapper.style.display = 'none';
+        }
+    });
+}
+
+// Router initialization function
+function initializeRouter() {
+    // Register routes
+    router.addRoute('dashboard', {
+        template: 'pages/dashboard.html',
+        onLoad: () => {
+            setupDashboardPage();
+            createCharts();
+            updateCharts();
+        }
+    });
+
+    router.addRoute('reports', {
+        template: 'pages/reports.html',
+        onLoad: () => {
+            setupReportsPage();
+        }
+    });
+
+    router.addRoute('table', {
+        template: 'pages/table.html',
+        onLoad: () => {
+            setupTablePage();
+            // Apply default A-Z sorting
+            sortUsers('name-az');
+            updateUserTable();
+        }
+    });
+
+    router.addRoute('calisanlar', {
+        template: 'pages/calisanlar.html',
+        onLoad: () => {
+            setupCalisanlarPage();
+        }
+    });
+
+    router.addRoute('ekipler', {
+        template: 'pages/ekipler.html',
+        onLoad: () => {
+            setupEkiplerPage();
+        }
+    });
+
+    router.addRoute('profile', {
+        template: 'pages/profile.html',
+        onLoad: () => {
+            console.log('[APP] Profile route loaded, initializing ProfilePage');
+            // Initialize ProfilePage after DOM is ready
+            if (window.ProfilePage) {
+                new window.ProfilePage();
+            } else {
+                console.error('[APP] ProfilePage class not found!');
+            }
+        }
+    });
+
+    // Initialize the router
+    router.init();
+}
+
+// Sidebar toggle function
+function initializeSidebarToggle() {
+    const sidebar = document.querySelector('.sidebar');
+    const toggleBtn = document.getElementById('sidebar-toggle');
+    const sidebarLogoutBtn = document.getElementById('sidebar-logout-btn');
+    const profileBtn = document.getElementById('profile-btn');
+
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+
+            // Save state to localStorage
+            const isCollapsed = sidebar.classList.contains('collapsed');
+            localStorage.setItem('sidebarCollapsed', isCollapsed);
+        });
+    }
+
+    // Sidebar logout button - DISABLED: Now handled by logout-modal.js
+    // if (sidebarLogoutBtn) {
+    //     sidebarLogoutBtn.addEventListener('click', () => {
+    //         const logoutModal = document.getElementById('logout-modal');
+    //         if (logoutModal) {
+    //             logoutModal.style.display = 'flex';
+    //         }
+    //     });
+    // }
+
+    // Profile button - navigate to profile page
+    if (profileBtn) {
+        profileBtn.addEventListener('click', () => {
+            router.navigate('profile');
+        });
+    }
+
+    // Handle responsive table controls when sidebar state changes
+    const handleSidebarResize = () => {
+        const timePeriodSelector = document.querySelector('.time-period-selector');
+        const tableControls = document.querySelector('.table-controls');
+
+        if (timePeriodSelector && tableControls) {
+            const mainContent = document.querySelector('.main-content');
+            if (mainContent) {
+                const availableWidth = mainContent.offsetWidth;
+                // Add compact mode if width is less than 1200px when sidebar is expanded
+                if (!sidebar.classList.contains('collapsed') && availableWidth < 1200) {
+                    timePeriodSelector.classList.add('compact-mode');
+                } else {
+                    timePeriodSelector.classList.remove('compact-mode');
+                }
+            }
+        }
+    };
+
+    // Observer for sidebar state changes
+    const sidebarObserver = new MutationObserver(handleSidebarResize);
+    sidebarObserver.observe(sidebar, {
+        attributes: true,
+        attributeFilter: ['class']
+    });
+
+    // Initial check
+    handleSidebarResize();
+
+    // Also handle window resize
+    window.addEventListener('resize', handleSidebarResize);
+
+    // Restore saved state
+    const savedState = localStorage.getItem('sidebarCollapsed');
+    if (savedState === 'true') {
+        sidebar.classList.add('collapsed');
+    }
+}
+
+// Setup reports page functionality
+function setupReportsPage() {
+    // Initialize the new reports page functionality
+    if (window.initReportsPage) {
+        window.initReportsPage();
+    }
+}
+
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
     // Test Turkish normalization
     testTurkishNormalization();
 
+    // Load data from localStorage
     const persisted = loadPersistedUsers();
+
     if (persisted && persisted.length > 0) {
         // Process website data to ensure browser parsing is applied
         users = persisted.map(user => {
@@ -759,23 +1196,277 @@ document.addEventListener('DOMContentLoaded', function() {
     } else {
         users = [];
         filteredUsers = [];
+        console.log('No data in localStorage. Click "Verileri Güncelle" to fetch from Supabase');
     }
+
     filterUsersByDateRange(); // Apply initial filtering
 
-    // Apply default sort on initial load
-    const sortSelect = document.getElementById('sort-select');
-    if (sortSelect && sortSelect.value) {
-        sortUsers(sortSelect.value);
-    }
-
+    // Setup event listeners for buttons and controls
     setupEventListeners();
+
+    // Render dashboard header (user name, law firm name) - this is global across all pages
     renderDashboard();
-    updateUserTable();
-    toggleClearButton(); // Set initial clear button state
-    createCharts();
+
+    // Initialize Sidebar Toggle
+    initializeSidebarToggle();
+
+    // Initialize Router - this must come after data is loaded and header is rendered
+    initializeRouter();
 });
 
-// Dummy generator removed – real data only
+
+
+
+
+// Populate team filter dropdown
+function populateTeamFilterDropdown() {
+    const teamFilterSelect = document.getElementById('team-filter-select');
+    if (!teamFilterSelect) return;
+
+    // Load teams from localStorage
+    const teams = loadTeams();
+
+    // Clear existing options except the first one (Tüm Ekipler)
+    teamFilterSelect.innerHTML = '<option value="">Tüm Ekipler</option>';
+
+    // Add team options
+    teams.forEach(team => {
+        const option = document.createElement('option');
+        option.value = team.id;
+        option.textContent = team.name;
+        teamFilterSelect.appendChild(option);
+    });
+}
+
+// Setup table page event listeners (called when table.html is loaded)
+function setupTablePage() {
+    // Clear any filters from other pages
+    currentTeamFilter = '';
+
+    // Clear search input if it exists
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) {
+        searchInput.value = '';
+    }
+
+    // Reload data from localStorage to ensure we have the latest data
+    const persisted = loadPersistedUsers();
+    console.log('[Table] Loading data from localStorage:', persisted ? persisted.length : 0, 'users');
+
+    if (persisted && persisted.length > 0) {
+        users = persisted.map(user => {
+            if (user.batchIds && user.batchIds.length > 0) {
+                user.websites = processUserWebsites(user);
+            }
+            return user;
+        });
+        filteredUsers = [...users];
+        console.log('[Table] Filtered users:', filteredUsers.length);
+        filterUsersByDateRange();
+        console.log('[Table] After date filter:', filteredUsers.length);
+        updateUserTable(); // Render table with loaded data
+        updateCharts(); // Render charts with loaded data
+        console.log('[Table] Table and charts updated');
+    } else {
+        console.warn('[Table] No persisted users found in localStorage');
+        users = [];
+        filteredUsers = [];
+        // Still call render functions to show empty state
+        updateUserTable();
+        updateCharts();
+    }
+
+    // Time period selector
+    document.querySelectorAll('[data-period]').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const customDateSelector = document.getElementById('custom-date-selector');
+
+            if (this.dataset.period === 'custom') {
+                // Toggle custom popup
+                const isVisible = customDateSelector.style.display === 'block';
+                if (isVisible) {
+                    hideCustomDatePopup();
+                } else {
+                    showCustomDatePopup();
+                }
+            } else {
+                // Handle other period buttons
+                document.querySelector('.btn-secondary.active').classList.remove('active');
+                this.classList.add('active');
+                currentPeriod = this.dataset.period;
+                hideCustomDatePopup();
+                customStartDate = null;
+                customEndDate = null;
+                performDynamicSearch(); // This will apply date/search filters and sorting
+                updateCharts();
+            }
+        });
+    });
+
+    // Sort select
+    const sortSelect = document.getElementById('sort-select');
+    if (sortSelect) {
+        sortSelect.addEventListener('change', function() {
+            const sortBy = this.value;
+            sortUsers(sortBy);
+            updateUserTable();
+        });
+    }
+
+    // Populate and setup team filter dropdown
+    populateTeamFilterDropdown();
+    const teamFilterSelect = document.getElementById('team-filter-select');
+    if (teamFilterSelect) {
+        teamFilterSelect.addEventListener('change', function() {
+            currentTeamFilter = this.value;
+            performDynamicSearch();
+            updateCharts();
+        });
+    }
+
+    // Reset All Filters button: reset date, search, and sort to defaults
+    const applyFiltersBtn = document.getElementById('apply-filters-btn');
+    if (applyFiltersBtn) {
+        applyFiltersBtn.addEventListener('click', function() {
+            resetAllFilters();
+        });
+    }
+
+    // Search input - dynamic search as user types
+    const searchEl = document.getElementById('search-input');
+    if (searchEl) {
+        searchEl.addEventListener('keydown', function(e) {
+            // Allow important keyboard shortcuts to work normally
+            if (e.metaKey || e.ctrlKey) {
+                // Allow Cmd+A, Cmd+C, Cmd+V, Cmd+X, etc.
+                return;
+            }
+
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                // No action needed - search is already dynamic
+            }
+        });
+
+        // Dynamic search as user types
+        searchEl.addEventListener('input', function() {
+            performDynamicSearch();
+            toggleClearButton();
+        });
+    }
+
+    // Clear search button functionality
+    const clearSearchBtn = document.getElementById('clear-search');
+    if (clearSearchBtn) {
+        clearSearchBtn.addEventListener('click', function() {
+            const searchInput = document.getElementById('search-input');
+            if (searchInput) {
+                searchInput.value = '';
+                performDynamicSearch();
+                toggleClearButton();
+                searchInput.focus();
+            }
+        });
+    }
+
+    // Custom date range apply button
+    const applyDateRangeBtn = document.getElementById('apply-date-range');
+    if (applyDateRangeBtn) {
+        applyDateRangeBtn.addEventListener('click', function() {
+            // Use dates from custom calendar
+            if (!selectedStartDate || !selectedEndDate) {
+                turkishAlert('Lütfen başlangıç ve bitiş tarihlerini seçin.');
+                return;
+            }
+
+            const start = new Date(selectedStartDate.getFullYear(), selectedStartDate.getMonth(), selectedStartDate.getDate(), 0, 0, 0);
+            const end = new Date(selectedEndDate.getFullYear(), selectedEndDate.getMonth(), selectedEndDate.getDate(), 23, 59, 59);
+            const today = new Date();
+            const oneYearAgo = new Date(today.getTime() - (365 * 24 * 60 * 60 * 1000));
+
+            // Create date-only objects for proper comparison
+            const startDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            const selectedStart = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+            const selectedEnd = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+
+            // Validate date range (max 1 year, not in future) - compare dates properly
+            if (selectedStart > startDateOnly || selectedEnd > startDateOnly) {
+                turkishAlert('Tarihler gelecekte olamaz.');
+                return;
+            }
+
+            if (start < oneYearAgo) {
+                turkishAlert('Başlangıç tarihi 1 yıldan daha eski olamaz.');
+                return;
+            }
+
+            if (end < start) {
+                turkishAlert('Bitiş tarihi başlangıç tarihinden sonra olmalıdır.');
+                return;
+            }
+
+            // Store dates properly in local timezone to avoid parsing issues
+            customStartDate = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+            customEndDate = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+            currentPeriod = 'custom';
+
+            // Update UI
+            document.querySelector('.btn-secondary.active').classList.remove('active');
+            document.getElementById('custom-btn').classList.add('active');
+
+            hideCustomDatePopup();
+            performDynamicSearch(); // This will apply date/search filters and sorting
+            updateCharts();
+        });
+    }
+
+    // Custom date range cancel button
+    const cancelDateRangeBtn = document.getElementById('cancel-date-range');
+    if (cancelDateRangeBtn) {
+        cancelDateRangeBtn.addEventListener('click', function() {
+            hideCustomDatePopup();
+        });
+    }
+
+    // Initialize custom calendars
+    initializeCustomCalendars();
+
+    // Modal export button
+    const modalExportBtn = document.getElementById('modal-export-btn');
+    if (modalExportBtn) {
+        modalExportBtn.addEventListener('click', function() {
+            exportUserCSV();
+        });
+    }
+
+    // Modal search functionality
+    const modalAppsSearch = document.getElementById('modal-apps-search');
+    if (modalAppsSearch) {
+        modalAppsSearch.addEventListener('input', function() {
+            filterModalTable('apps', this.value);
+        });
+    }
+
+    const modalWebsitesSearch = document.getElementById('modal-websites-search');
+    if (modalWebsitesSearch) {
+        modalWebsitesSearch.addEventListener('input', function() {
+            filterModalTable('websites', this.value);
+        });
+    }
+
+    // Modal close
+    const modalClose = document.querySelector('.modal-close');
+    if (modalClose) {
+        modalClose.addEventListener('click', closeModal);
+    }
+
+    const userModal = document.getElementById('user-modal');
+    if (userModal) {
+        userModal.addEventListener('click', function(e) {
+            if (e.target === this) closeModal();
+        });
+    }
+}
 
 // Setup event listeners
 function setupEventListeners() {
@@ -821,40 +1512,124 @@ function setupEventListeners() {
     // });
     
     // Update data button (Supabase)
-    document.getElementById('update-data-btn').addEventListener('click', function() {
-        updateDataFromSupabase();
-    });
+    const updateDataBtn = document.getElementById('update-data-btn');
+    if (updateDataBtn) {
+        // Remove any existing listeners first to prevent duplicates
+        updateDataBtn.removeEventListener('click', updateDataFromSupabase);
+        // Add the listener
+        updateDataBtn.addEventListener('click', updateDataFromSupabase);
+    }
 
+    // LOGOUT MODAL HANDLERS - DISABLED: Now handled by logout-modal.js
+    // The new logout-modal.js file uses event delegation for better reliability
+
+    /* Commented out to avoid conflicts with logout-modal.js
     // Logout button
-    document.getElementById('logout-btn').addEventListener('click', function() {
-        // Show custom logout modal
-        document.getElementById('logout-modal').style.display = 'block';
-    });
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', function() {
+            // Show custom logout modal
+            const logoutModal = document.getElementById('logout-modal');
+            if (logoutModal) {
+                console.log('[DEBUG] Opening logout modal from main button');
+                logoutModal.style.display = 'flex';
+            }
+        });
+    }
 
-    // Logout modal event listeners
-    document.getElementById('logout-cancel').addEventListener('click', function() {
-        document.getElementById('logout-modal').style.display = 'none';
-    });
+    // Logout modal event listeners - Setup once with proper debugging
+    const setupLogoutModalListeners = () => {
+        const logoutCancelBtn = document.getElementById('logout-cancel');
+        const logoutConfirmBtn = document.getElementById('logout-confirm');
+        const logoutModal = document.getElementById('logout-modal');
 
-    document.getElementById('logout-confirm').addEventListener('click', async function() {
-        document.getElementById('logout-modal').style.display = 'none';
+        console.log('[DEBUG] Setting up logout modal listeners:', {
+            cancelBtn: !!logoutCancelBtn,
+            confirmBtn: !!logoutConfirmBtn,
+            modal: !!logoutModal
+        });
 
-        try {
-            // Fire and forget - don't wait for response
-            await window.electronAPI.authLogout();
-        } catch (error) {
-            console.error('Logout error:', error);
-            // Fallback for non-Electron environments
-            window.location.href = 'auth.html';
+        if (logoutCancelBtn) {
+            // Remove any existing listeners by cloning
+            const newCancelBtn = logoutCancelBtn.cloneNode(true);
+            logoutCancelBtn.parentNode.replaceChild(newCancelBtn, logoutCancelBtn);
+
+            newCancelBtn.addEventListener('click', function(e) {
+                console.log('[DEBUG] Cancel button clicked');
+                e.preventDefault();
+                e.stopPropagation();
+
+                const modal = document.getElementById('logout-modal');
+                if (modal) {
+                    modal.style.display = 'none';
+                    console.log('[DEBUG] Modal closed via cancel');
+                }
+            });
         }
-    });
 
-    // Close logout modal when clicking outside
-    document.getElementById('logout-modal').addEventListener('click', function(e) {
-        if (e.target === this) {
-            this.style.display = 'none';
+        if (logoutConfirmBtn) {
+            // Remove any existing listeners by cloning
+            const newConfirmBtn = logoutConfirmBtn.cloneNode(true);
+            logoutConfirmBtn.parentNode.replaceChild(newConfirmBtn, logoutConfirmBtn);
+
+            newConfirmBtn.addEventListener('click', async function(e) {
+                console.log('[DEBUG] Confirm button clicked');
+                e.preventDefault();
+                e.stopPropagation();
+
+                const modal = document.getElementById('logout-modal');
+                if (modal) {
+                    modal.style.display = 'none';
+                }
+
+                try {
+                    console.log('[DEBUG] Starting logout process');
+
+                    // Check if electronAPI is available
+                    if (window.electronAPI && window.electronAPI.signOutUser) {
+                        console.log('[DEBUG] Calling electronAPI.signOutUser');
+                        await window.electronAPI.signOutUser();
+                    } else {
+                        console.log('[DEBUG] electronAPI not available, proceeding with logout');
+                    }
+
+                    // Clear any local storage data
+                    console.log('[DEBUG] Clearing storage');
+                    localStorage.clear();
+                    sessionStorage.clear();
+
+                    // Navigate to auth page after successful logout
+                    console.log('[DEBUG] Navigating to auth.html');
+                    window.location.href = 'auth.html';
+                } catch (error) {
+                    console.error('[DEBUG] Logout error:', error);
+                    // Still navigate to auth page even if logout fails
+                    localStorage.clear();
+                    sessionStorage.clear();
+                    window.location.href = 'auth.html';
+                }
+            });
         }
-    });
+
+        // Close logout modal when clicking outside
+        if (logoutModal) {
+            // Clone to remove existing listeners
+            const newModal = logoutModal.cloneNode(true);
+            logoutModal.parentNode.replaceChild(newModal, logoutModal);
+
+            newModal.addEventListener('click', function(e) {
+                // Only close if clicking on the modal backdrop itself
+                if (e.target === this) {
+                    console.log('[DEBUG] Modal backdrop clicked');
+                    this.style.display = 'none';
+                }
+            });
+        }
+    };
+
+    // Call the setup function
+    setupLogoutModalListeners();
+    */
 
     // Search input: no live filtering; handled by Apply Filter button
 
@@ -881,36 +1656,54 @@ function setupEventListeners() {
     }
 
     // Sort select
-    document.getElementById('sort-select').addEventListener('change', function() {
-        const sortBy = this.value;
-        sortUsers(sortBy);
-        updateUserTable();
-    });
+    const sortSelect = document.getElementById('sort-select');
+    if (sortSelect) {
+        sortSelect.addEventListener('change', function() {
+            const sortBy = this.value;
+            sortUsers(sortBy);
+            updateUserTable();
+        });
+    }
     
     // Removed per-page selector; always show all
     
     // Export button
-    document.getElementById('export-btn').addEventListener('click', function() {
-        exportToCSV();
-    });
+    const exportBtn = document.getElementById('export-btn');
+    if (exportBtn) {
+        exportBtn.addEventListener('click', function() {
+            exportToCSV();
+        });
+    }
 
-    document.getElementById('modal-export-btn').addEventListener('click', function() {
-        exportUserCSV();
-    });
+    const modalExportBtn = document.getElementById('modal-export-btn');
+    if (modalExportBtn) {
+        modalExportBtn.addEventListener('click', function() {
+            exportUserCSV();
+        });
+    }
 
     // Modal search functionality
-    document.getElementById('modal-apps-search').addEventListener('input', function() {
-        filterModalTable('apps', this.value);
-    });
+    const modalAppsSearch = document.getElementById('modal-apps-search');
+    if (modalAppsSearch) {
+        modalAppsSearch.addEventListener('input', function() {
+            filterModalTable('apps', this.value);
+        });
+    }
 
-    document.getElementById('modal-websites-search').addEventListener('input', function() {
-        filterModalTable('websites', this.value);
-    });
-    
+    const modalWebsitesSearch = document.getElementById('modal-websites-search');
+    if (modalWebsitesSearch) {
+        modalWebsitesSearch.addEventListener('input', function() {
+            filterModalTable('websites', this.value);
+        });
+    }
+
     // Reset All Filters button: reset date, search, and sort to defaults
-    document.getElementById('apply-filters-btn').addEventListener('click', function() {
-        resetAllFilters();
-    });
+    const applyFiltersBtn = document.getElementById('apply-filters-btn');
+    if (applyFiltersBtn) {
+        applyFiltersBtn.addEventListener('click', function() {
+            resetAllFilters();
+        });
+    }
 
     // Hitting Enter in search field does nothing (search is already dynamic)
     const searchEl = document.getElementById('search-input');
@@ -952,7 +1745,9 @@ function setupEventListeners() {
     // No pagination controls; showing all users
     
     // Custom date range apply button
-    document.getElementById('apply-date-range').addEventListener('click', function() {
+    const applyDateRangeBtn = document.getElementById('apply-date-range');
+    if (applyDateRangeBtn) {
+        applyDateRangeBtn.addEventListener('click', function() {
         // Use dates from custom calendar
         if (!selectedStartDate || !selectedEndDate) {
             turkishAlert('Lütfen başlangıç ve bitiş tarihlerini seçin.');
@@ -997,25 +1792,34 @@ function setupEventListeners() {
         hideCustomDatePopup();
         performDynamicSearch(); // This will apply date/search filters and sorting
         updateCharts();
-    });
+        });
+    }
 
     // Custom date range cancel button
-    document.getElementById('cancel-date-range').addEventListener('click', function() {
-        hideCustomDatePopup();
-    });
-    
+    const cancelDateRangeBtn = document.getElementById('cancel-date-range');
+    if (cancelDateRangeBtn) {
+        cancelDateRangeBtn.addEventListener('click', function() {
+            hideCustomDatePopup();
+        });
+    }
+
     // Modal close
-    document.querySelector('.modal-close').addEventListener('click', closeModal);
-    document.getElementById('user-modal').addEventListener('click', function(e) {
-        if (e.target === this) closeModal();
-    });
+    const modalCloseBtn = document.querySelector('.modal-close');
+    if (modalCloseBtn) {
+        modalCloseBtn.addEventListener('click', closeModal);
+    }
+
+    const userModal = document.getElementById('user-modal');
+    if (userModal) {
+        userModal.addEventListener('click', function(e) {
+            if (e.target === this) closeModal();
+        });
+    }
 }
 
 // Custom date popup control functions
 let startCalendar = null;
 let endCalendar = null;
-let selectedStartDate = null;
-let selectedEndDate = null;
 
 function initializeCustomCalendars() {
     const today = new Date();
@@ -1130,10 +1934,10 @@ function initializeCustomCalendars() {
         const startDisplay = document.getElementById('start-date-display');
         const endDisplay = document.getElementById('end-date-display');
 
-        if (!startWrapper.contains(e.target) && !startDisplay.contains(e.target)) {
+        if (startWrapper && startDisplay && !startWrapper.contains(e.target) && !startDisplay.contains(e.target)) {
             startWrapper.classList.remove('show');
         }
-        if (!endWrapper.contains(e.target) && !endDisplay.contains(e.target)) {
+        if (endWrapper && endDisplay && !endWrapper.contains(e.target) && !endDisplay.contains(e.target)) {
             endWrapper.classList.remove('show');
         }
     });
@@ -2033,6 +2837,19 @@ function performDynamicSearch() {
     // Start with all users from the date-filtered set
     filterUsersByDateRange();
 
+    // Apply team filter if a team is selected
+    if (currentTeamFilter) {
+        const teams = loadTeams();
+        const selectedTeam = teams.find(t => t.id === currentTeamFilter);
+        if (selectedTeam && selectedTeam.members) {
+            const teamUserIds = selectedTeam.members.map(m => m.userId);
+            filteredUsers = filteredUsers.filter(user => {
+                // Check both userId and id fields to ensure compatibility
+                return teamUserIds.includes(user.userId) || teamUserIds.includes(user.userId?.toString()) || teamUserIds.includes(user.id?.toString());
+            });
+        }
+    }
+
     // Get search term from input
     const searchInput = document.getElementById('search-input');
     if (!searchInput) return;
@@ -2084,6 +2901,13 @@ function resetAllFilters() {
     if (sortSelect) {
         sortSelect.value = 'name-az';
     }
+
+    // Reset team filter to default (all users)
+    const teamFilterSelect = document.getElementById('team-filter-select');
+    if (teamFilterSelect) {
+        teamFilterSelect.value = '';
+    }
+    currentTeamFilter = '';
 
     // Reset date filter to default (weekly)
     // Remove active class from all period buttons
@@ -2146,12 +2970,23 @@ function resetAllFilters() {
 function updateUserTable() {
     const tableBody = document.getElementById('users-table-body');
 
+    // If table doesn't exist (e.g., we're on a different page), skip update
+    if (!tableBody) {
+        return;
+    }
+
     // Check if no users found after filtering
     if (filteredUsers.length === 0) {
         tableBody.innerHTML = `
             <tr class="no-users-row">
                 <td colspan="7" class="no-users-message">
-                    Kayıt bulunamadı lütfen verileri güncelleyiniz veya filtreleri kontrol ediniz
+                    <div class="empty-state-content">
+                        <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                        <h3>Veri Bulunamadı</h3>
+                    </div>
                 </td>
             </tr>
         `;
@@ -2179,11 +3014,12 @@ function updateUserTable() {
             timeDisplay = `${h}s ${m}d ${s}sn`;
         }
 
+        const displayName = getDisplayName(user.userId);
         return `
         <tr class="clickable-row" onclick="openUserModal(${user.id})">
             <td class="row-number">${index + 1}</td>
             <td>
-                <div class="user-name ${user.name.length > 25 ? 'truncated' : ''}" onclick="event.stopPropagation(); showFullUserName('${user.name.replace(/'/g, "\\'")}')" title="${user.name.length > 25 ? 'Click to see full name' : ''}">${user.name}</div>
+                <div class="user-name ${displayName.length > 25 ? 'truncated' : ''}" onclick="event.stopPropagation(); showFullUserName('${displayName.replace(/'/g, "\\'")}')" title="${displayName.length > 25 ? 'Click to see full name' : ''}">${displayName}</div>
             </td>
             <td>
                 <span class="time-badge time-active">
@@ -2238,7 +3074,7 @@ function updateUserTable() {
                 </div>
             </td>
             <td>
-                <button class="view-btn" onclick="event.stopPropagation(); openUserModal(${user.id})">Detayları Görüntüle</button>
+                <button class="view-details-btn" onclick="event.stopPropagation(); openUserModal(${user.id})">Detayları Görüntüle</button>
             </td>
         </tr>`;
     }).join('');
@@ -2247,9 +3083,17 @@ function updateUserTable() {
 }
 
 function createCharts() {
+    // Only create charts if we're on a page that has chart elements
+    if (!document.getElementById('activity-chart')) {
+        return;
+    }
+
     updateChartHeader();
     createActivityChart();
     createAppsChart();
+    createWebsitesChart();
+    createTopUsersChart();
+    createDailyTrendChart();
 }
 
 // Plugin to show "no data" message in a styled box
@@ -2321,7 +3165,10 @@ function calculateYAxisMax(data) {
 }
 
 function createActivityChart() {
-    const ctx = document.getElementById('activity-chart').getContext('2d');
+    const canvas = document.getElementById('activity-chart');
+    if (!canvas) return; // Chart element doesn't exist on this page
+
+    const ctx = canvas.getContext('2d');
 
     const chartData = generateChartData();
     const labels = chartData.labels;
@@ -2402,7 +3249,10 @@ function createActivityChart() {
 }
 
 function createAppsChart() {
-    const ctx = document.getElementById('apps-chart').getContext('2d');
+    const canvas = document.getElementById('apps-chart');
+    if (!canvas) return; // Chart element doesn't exist on this page
+
+    const ctx = canvas.getContext('2d');
 
     const appCounts = {};
     filteredUsers.forEach(user => {
@@ -2489,14 +3339,256 @@ function createAppsChart() {
     });
 }
 
-function updateChartHeader() {
-    const chartHeader = document.querySelector('.chart-header h3');
-    let headerText = 'Activity Overview';
-    const today = new Date();
+function createWebsitesChart() {
+    const ctx = document.getElementById('websites-chart')?.getContext('2d');
+    if (!ctx) return;
 
+    const websiteCounts = {};
+    filteredUsers.forEach(user => {
+        const filteredUser = filterUserDataByDateRange(user);
+
+        if (filteredUser.websites && Array.isArray(filteredUser.websites)) {
+            filteredUser.websites.forEach(website => {
+                const websiteName = website.name || website.domain || 'Unknown';
+                websiteCounts[websiteName] = (websiteCounts[websiteName] || 0) + (website.usage || 0);
+            });
+        }
+    });
+
+    const sortedWebsites = Object.entries(websiteCounts)
+        .sort(([,a], [,b]) => b - a);
+
+    const top5Websites = sortedWebsites.slice(0, 5);
+    const otherWebsites = sortedWebsites.slice(5);
+    const othersTotalUsage = otherWebsites.reduce((sum, [, usage]) => sum + usage, 0);
+
+    let chartLabels = top5Websites.map(([name]) => name);
+    let chartData = top5Websites.map(([, usage]) => usage);
+
+    if (othersTotalUsage > 0) {
+        chartLabels.push('Diğer');
+        chartData.push(othersTotalUsage);
+    }
+
+    const hasData = chartData.length > 0 && chartData.some(usage => usage > 0);
+
+    if (websitesChart) {
+        websitesChart.destroy();
+    }
+
+    websitesChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: hasData ? chartLabels : [],
+            datasets: hasData ? [{
+                data: chartData,
+                backgroundColor: [
+                    '#7BA098',
+                    '#4A7B93',
+                    '#A0C0D6',
+                    '#7EA7A9',
+                    '#B8E5E7',
+                    '#324659'
+                ],
+                borderWidth: 0
+            }] : []
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: hasData,
+                    position: 'bottom',
+                    labels: {
+                        padding: 15,
+                        usePointStyle: true
+                    }
+                },
+                tooltip: {
+                    displayColors: false,
+                    callbacks: {
+                        label: function(context) {
+                            const seconds = context.parsed;
+                            return formatTimeForTooltip(seconds);
+                        }
+                    }
+                }
+            },
+            layout: {
+                padding: 0
+            }
+        },
+        plugins: !hasData ? [noDataPlugin] : []
+    });
+}
+
+function createTopUsersChart() {
+    const ctx = document.getElementById('top-users-chart')?.getContext('2d');
+    if (!ctx) return;
+
+    // Calculate total active time per user in minutes
+    const userTotals = filteredUsers.map(user => {
+        const filteredUser = filterUserDataByDateRange(user);
+        // Calculate total minutes from activeTime object
+        const totalMinutes = (filteredUser.activeTime?.hours || 0) * 60 +
+                           (filteredUser.activeTime?.minutes || 0) +
+                           (filteredUser.activeTime?.seconds || 0) / 60;
+        return {
+            name: getDisplayName(user.userId) || 'Unknown',
+            total: totalMinutes
+        };
+    });
+
+    // Sort and get top 10
+    const sortedUsers = userTotals
+        .filter(u => u.total > 0)
+        .sort((a, b) => b.total - a.total)
+        .slice(0, 10);
+
+    const hasData = sortedUsers.length > 0;
+
+    if (topUsersChart) {
+        topUsersChart.destroy();
+    }
+
+    topUsersChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: hasData ? sortedUsers.map(u => u.name) : [],
+            datasets: hasData ? [{
+                label: 'Toplam Aktif Süre (saat)',
+                data: sortedUsers.map(u => u.total / 60), // Convert minutes to hours
+                backgroundColor: '#7BA098',
+                borderColor: '#4A7B93',
+                borderWidth: 1
+            }] : []
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const hours = context.parsed.x;
+                            const minutes = hours * 60;
+                            return formatTimeForTooltip(minutes);
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return value.toFixed(1) + 's';
+                        }
+                    },
+                    grid: {
+                        display: true,
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    }
+                },
+                y: {
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        },
+        plugins: !hasData ? [noDataPlugin] : []
+    });
+}
+
+function createDailyTrendChart() {
+    const ctx = document.getElementById('daily-trend-chart')?.getContext('2d');
+    if (!ctx) return;
+
+    // Generate daily average data based on current period
+    const chartData = generateChartData();
+    const labels = chartData.labels;
+    const data = chartData.data;
+
+    const hasData = data.some(value => value !== null && value !== undefined && value > 0);
+    const yAxisMax = calculateYAxisMax(data);
+
+    if (dailyTrendChart) {
+        dailyTrendChart.destroy();
+    }
+
+    dailyTrendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: hasData ? labels : [],
+            datasets: hasData ? [{
+                label: 'Günlük Ortalama (saat)',
+                data: data,
+                borderColor: '#4A7B93',
+                backgroundColor: 'rgba(74, 123, 147, 0.1)',
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: '#7BA098',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                pointRadius: 4,
+                pointHoverRadius: 6
+            }] : []
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    displayColors: false,
+                    callbacks: {
+                        label: function(context) {
+                            const minutes = context.parsed.y;
+                            return formatTimeForTooltip(minutes);
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: yAxisMax,
+                    ticks: {
+                        callback: function(value) {
+                            return (value / 60).toFixed(1) + 'h';
+                        }
+                    },
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        },
+        plugins: !hasData ? [noDataPlugin] : []
+    });
+}
+
+function updateChartHeader() {
+    const today = new Date();
+    let dateRangeText = '';
+
+    // Calculate date range text based on current period
     if (currentPeriod === 'daily') {
         const todayStr = today.toLocaleDateString('tr-TR');
-        headerText = `Aktivite Genel Bakış - Bugün Ortalama (${todayStr})`;
+        dateRangeText = `Bugün (${todayStr})`;
     } else if (currentPeriod === 'weekly') {
         // Calculate Monday to Sunday for the current week
         const monday = new Date(today);
@@ -2509,7 +3601,7 @@ function updateChartHeader() {
 
         const mondayStr = monday.toLocaleDateString('tr-TR');
         const sundayStr = sunday.toLocaleDateString('tr-TR');
-        headerText = `Aktivite Genel Bakış - Haftalık Ortalama (${mondayStr} - ${sundayStr})`;
+        dateRangeText = `Haftalık (${mondayStr} - ${sundayStr})`;
     } else if (currentPeriod === 'monthly') {
         // Calculate 1st of month to end of month
         const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -2517,7 +3609,7 @@ function updateChartHeader() {
 
         const firstStr = firstDay.toLocaleDateString('tr-TR');
         const lastStr = lastDay.toLocaleDateString('tr-TR');
-        headerText = `Aktivite Genel Bakış - Aylık Ortalama (${firstStr} - ${lastStr})`;
+        dateRangeText = `Aylık (${firstStr} - ${lastStr})`;
     } else if (currentPeriod === 'annual') {
         // Calculate January 1st to December 31st
         const firstDay = new Date(today.getFullYear(), 0, 1);
@@ -2525,20 +3617,44 @@ function updateChartHeader() {
 
         const firstStr = firstDay.toLocaleDateString('tr-TR');
         const lastStr = lastDay.toLocaleDateString('tr-TR');
-        headerText = `Aktivite Genel Bakış - Yıllık Ortalama (${firstStr} - ${lastStr})`;
+        dateRangeText = `Yıllık (${firstStr} - ${lastStr})`;
     } else if (currentPeriod === 'custom' && customStartDate && customEndDate) {
         const startStr = customStartDate.toLocaleDateString('tr-TR');
         const endStr = customEndDate.toLocaleDateString('tr-TR');
-        headerText = `Aktivite Genel Bakış - Özel (${startStr} - ${endStr})`;
+        dateRangeText = `Özel (${startStr} - ${endStr})`;
     }
 
-    chartHeader.textContent = headerText;
+    // Update all chart titles with date range
+    const activityTitle = document.getElementById('activity-chart-title');
+    const topUsersTitle = document.getElementById('top-users-chart-title');
+    const appsTitle = document.getElementById('apps-chart-title');
+    const websitesTitle = document.getElementById('websites-chart-title');
+    const dailyTrendTitle = document.getElementById('daily-trend-chart-title');
+
+    if (activityTitle) {
+        activityTitle.textContent = `Aktivite Genel Bakış - ${dateRangeText}`;
+    }
+    if (topUsersTitle) {
+        topUsersTitle.textContent = `En Aktif Kullanıcılar - ${dateRangeText}`;
+    }
+    if (appsTitle) {
+        appsTitle.textContent = `Uygulama Kullanım Dağılımı - ${dateRangeText}`;
+    }
+    if (websitesTitle) {
+        websitesTitle.textContent = `Web Sitesi Kullanım Dağılımı - ${dateRangeText}`;
+    }
+    if (dailyTrendTitle) {
+        dailyTrendTitle.textContent = `Günlük Ortalama Aktivite Trendi - ${dateRangeText}`;
+    }
 }
 
 function updateCharts() {
     updateChartHeader();
     createActivityChart();
     createAppsChart();
+    createWebsitesChart();
+    createTopUsersChart();
+    createDailyTrendChart();
 }
 
 function filterUserDataByDateRange(user) {
@@ -2809,7 +3925,7 @@ function processUserWebsites(user) {
     }
 
     const result = Array.from(websitesMap.values()).sort((a, b) => b.usage - a.usage);
-    console.log('Processed websites:', result.length, 'websites found');
+    // console.log('Processed websites:', result.length, 'websites found'); // Commented out to reduce console noise
     return result;
 }
 
@@ -3109,7 +4225,10 @@ function populateWebsitesTable(user) {
 }
 
 function createModalCharts(user) {
-    const appsCtx = document.getElementById('modal-apps-chart').getContext('2d');
+    const appsCanvas = document.getElementById('modal-apps-chart');
+    if (!appsCanvas) return; // Chart element doesn't exist
+
+    const appsCtx = appsCanvas.getContext('2d');
 
     if (modalAppsChart) {
         modalAppsChart.destroy();
@@ -3192,8 +4311,10 @@ function createModalCharts(user) {
             }
         }
     });
-    
-    const websitesCtx = document.getElementById('modal-websites-chart').getContext('2d');
+
+    const websitesCanvas = document.getElementById('modal-websites-chart');
+    if (!websitesCanvas) return; // Chart element doesn't exist on this page
+    const websitesCtx = websitesCanvas.getContext('2d');
     
     if (modalWebsitesChart) {
         modalWebsitesChart.destroy();
@@ -3335,17 +4456,34 @@ function formatDate(date) {
 }
 
 // Supabase functions
+// Flag to prevent multiple simultaneous updates
+let isUpdatingData = false;
+
+// Alias for updateDataFromSupabase to maintain compatibility
+async function loadAllUserData() {
+    return await updateDataFromSupabase();
+}
+
 async function updateDataFromSupabase() {
+    // Prevent multiple simultaneous updates
+    if (isUpdatingData) {
+        console.log('Update already in progress, skipping duplicate call');
+        return;
+    }
+
+    isUpdatingData = true;
     const updateBtn = document.getElementById('update-data-btn');
-    const originalContent = updateBtn.innerHTML;
+    const originalContent = updateBtn ? updateBtn.innerHTML : null;
 
     try {
         // Show loading popup immediately
         showLoadingPopup('Veriler Güncelleniyor');
 
-        // Step 1: Change button state to loading
-        updateBtn.innerHTML = 'Veriler Güncelleniyor';
-        updateBtn.disabled = true;
+        // Step 1: Change button state to loading (only if button exists)
+        if (updateBtn) {
+            updateBtn.innerHTML = 'Veriler Güncelleniyor';
+            updateBtn.disabled = true;
+        }
 
         // Step 2: Fetch data from Supabase
         console.log('Fetching data from Supabase...');
@@ -3355,7 +4493,9 @@ async function updateDataFromSupabase() {
             // Step 3: Get user IDs and fetch real names
             console.log(`Successfully fetched ${data.length} records from Supabase`);
             updateLoadingPopup('Kullanıcı İsimleri Getiriliyor');
-            updateBtn.innerHTML = 'Veriler Güncelleniyor';
+            if (updateBtn) {
+                updateBtn.innerHTML = 'Veriler Güncelleniyor';
+            }
 
             const userIds = extractUserIds(data);
             console.log('Extracted user IDs:', userIds);
@@ -3365,11 +4505,14 @@ async function updateDataFromSupabase() {
 
             // Step 4: Process the data with real names
             updateLoadingPopup('Veriler İnceleniyor');
-            updateBtn.innerHTML = 'Veriler Güncelleniyor';
-            processSupabaseData(data, userNames);
-            // After processing, persist cumulative data
+            if (updateBtn) {
+                updateBtn.innerHTML = 'Veriler Güncelleniyor';
+            }
+            const newUsers = processSupabaseData(data, userNames) || [];
+
+            // After processing, merge with existing persisted data
             const persisted = loadPersistedUsers();
-            const merged = mergeCumulativeUsers(persisted, users);
+            const merged = mergeCumulativeUsers(persisted, newUsers);
             savePersistedUsers(merged);
             users = merged;
 
@@ -3381,20 +4524,26 @@ async function updateDataFromSupabase() {
             updateCharts();
             
             // Step 5: Update button state
-            updateBtn.innerHTML = 'Veriler Güncelleniyor';
-            
+            if (updateBtn) {
+                updateBtn.innerHTML = 'Veriler Güncelleniyor';
+            }
+
             // Step 6: Confirm receipt (you can customize this part based on your needs)
             console.log('Confirming data receipt...');
             await confirmDataReceipt(data.length);
-            
+
             // Step 7: Delete all data from Supabase table
             updateLoadingPopup('Kayıtlar İşleniyor');
-            updateBtn.innerHTML = 'Veriler Güncelleniyor';
+            if (updateBtn) {
+                updateBtn.innerHTML = 'Veriler Güncelleniyor';
+            }
             console.log('Deleting all data from Supabase...');
             await deleteAllDataFromSupabase();
             
             // Step 7: Success
-            updateBtn.innerHTML = 'Veriler Güncelleniyor';
+            if (updateBtn) {
+                updateBtn.innerHTML = 'Veriler Güncelleniyor';
+            }
             console.log('Data update process completed successfully');
 
             // Hide loading popup and show success message
@@ -3418,11 +4567,16 @@ async function updateDataFromSupabase() {
             turkishAlert('Veri Güncelleme Sırasında Hata Oluştu: ' + error.message);
         }, 100);
     } finally {
-        // Reset button after 3 seconds
-        setTimeout(() => {
-            updateBtn.innerHTML = originalContent;
-            updateBtn.disabled = false;
-        }, 3000);
+        // Reset the flag to allow future updates
+        isUpdatingData = false;
+
+        // Reset button after 3 seconds (only if button exists)
+        if (updateBtn) {
+            setTimeout(() => {
+                updateBtn.innerHTML = originalContent;
+                updateBtn.disabled = false;
+            }, 3000);
+        }
     }
 }
 
@@ -3561,23 +4715,9 @@ async function deleteAllDataFromSupabase() {
         return;
     }
     
-    // Delete all records using a range delete (more efficient)
-    const deleteResponse = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE_NAME}`, {
-        method: 'DELETE',
-        headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=minimal'
-        },
-        // Delete all records (be careful with this!)
-        body: JSON.stringify({})
-    });
-    
-    // Alternative: Delete with a condition that matches all records
-    // You can also use: ?id=gte.0 in the URL to delete all records where id >= 0
-    
-    const deleteWithCondition = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE_NAME}?id=gte.0`, {
+    // Delete all records with a condition that matches all records
+    // Using ?id=gte.0 to delete all records where id >= 0
+    const deleteResponse = await fetch(`${SUPABASE_URL}/rest/v1/${TABLE_NAME}?id=gte.0`, {
         method: 'DELETE',
         headers: {
             'apikey': SUPABASE_ANON_KEY,
@@ -3586,9 +4726,9 @@ async function deleteAllDataFromSupabase() {
             'Prefer': 'return=minimal'
         }
     });
-    
-    if (!deleteWithCondition.ok) {
-        throw new Error(`Failed to delete records: ${deleteWithCondition.status}`);
+
+    if (!deleteResponse.ok) {
+        throw new Error(`Failed to delete records: ${deleteResponse.status}`);
     }
     
     console.log(`Successfully deleted ${records.length} records from ${TABLE_NAME} table`);
@@ -3914,7 +5054,7 @@ function processSupabaseData(data, userNames = {}) {
     
     if (data.length === 0) {
         console.log('No data to process');
-        return;
+        return [];
     }
     
     try {
@@ -3942,24 +5082,10 @@ function processSupabaseData(data, userNames = {}) {
             return mergedUser;
         });
         
-        // Update the global users array (seconds-based)
-        users = processedUsers;
-
-        // Apply current date filtering
-        filterUsersByDateRange();
-
-        // Re-apply current sort after data processing
-        const sortSelect = document.getElementById('sort-select');
-        if (sortSelect && sortSelect.value) {
-            sortUsers(sortSelect.value);
-        }
-
-        // Update the interface
-        renderDashboard();
-        updateUserTable();
-        updateCharts();
-        
+        // Return processed users instead of directly updating global array
+        // This allows proper merging with persisted data
         console.log(`Successfully processed ${processedUsers.length} activity records from Supabase data`);
+        return processedUsers;
         
     } catch (error) {
         console.error('Error processing Supabase data:', error);
@@ -4671,25 +5797,26 @@ async function initializeHeader() {
 
             const lawFirmName = sessionData.user.profile?.law_firm_name || 'Hukuk Bürosu';
 
-            // Update header elements
-            const userNameEl = document.getElementById('header-user-name');
-            const lawFirmEl = document.getElementById('header-law-firm');
+            // Update sidebar user profile
+            const sidebarUserName = document.getElementById('sidebar-user-name');
+            const sidebarUserRole = document.getElementById('sidebar-user-role');
 
-            if (userNameEl) userNameEl.textContent = userName;
-            if (lawFirmEl) lawFirmEl.textContent = lawFirmName;
+            if (sidebarUserName) sidebarUserName.textContent = userName;
+            if (sidebarUserRole) sidebarUserRole.textContent = lawFirmName;
 
-            console.log('Header updated with user data:', { userName, lawFirmName });
+            console.log('User profile updated:', { userName, lawFirmName });
         } else {
             throw new Error('No user data available');
         }
     } catch (error) {
         console.error('Error loading user session:', error);
-        // Fallback values
-        const userNameEl = document.getElementById('header-user-name');
-        const lawFirmEl = document.getElementById('header-law-firm');
 
-        if (userNameEl) userNameEl.textContent = 'Kullanıcı';
-        if (lawFirmEl) lawFirmEl.textContent = 'Hukuk Bürosu';
+        // Update sidebar with fallback values
+        const sidebarUserName = document.getElementById('sidebar-user-name');
+        const sidebarUserRole = document.getElementById('sidebar-user-role');
+
+        if (sidebarUserName) sidebarUserName.textContent = 'Kullanıcı';
+        if (sidebarUserRole) sidebarUserRole.textContent = 'Hukuk Bürosu';
     }
 }
 
@@ -5008,4 +6135,1214 @@ function setupTimelineHover(timelineData) {
     canvas.addEventListener('mouseleave', () => {
         tooltip.style.display = 'none';
     });
-} 
+}
+
+// ============================================================================
+// ÇALIŞANLAR PAGE FUNCTIONS
+// ============================================================================
+
+let calisanlarData = [];
+let filteredCalisanlarData = [];
+let userToDelete = null;
+
+function setupCalisanlarPage() {
+    console.log('Setting up Çalışanlar page...');
+    loadCalisanlarData();
+    setupCalisanlarEventListeners();
+}
+
+function loadCalisanlarData() {
+    // Always load fresh from localStorage to ensure we have all users
+    const allUsers = loadPersistedUsers();
+
+    console.log('Loading Çalışanlar data...', allUsers ? allUsers.length : 0, 'users found');
+
+    if (!allUsers || allUsers.length === 0) {
+        console.log('No users found in localStorage');
+        calisanlarData = [];
+        filteredCalisanlarData = [];
+        renderCalisanlarTable();
+        return;
+    }
+
+    // Transform users data into çalışanlar format
+    calisanlarData = allUsers.map(user => {
+        // Calculate first and last data dates
+        let firstDataDate = null;
+        let lastDataDate = null;
+
+        // Use lastActivity for last data
+        if (user.lastActivity) {
+            lastDataDate = new Date(user.lastActivity);
+        }
+
+        // Try to find earliest and latest dates from batchIds
+        if (user.batchIds && Array.isArray(user.batchIds) && user.batchIds.length > 0) {
+            try {
+                const dates = user.batchIds.map(batchId => {
+                    // Check if batchId is an object (which is the case based on mergeUserRecords)
+                    if (typeof batchId === 'object' && batchId !== null && !(batchId instanceof Date)) {
+                        // Try date_tracked first (most reliable)
+                        if (batchId.date_tracked) {
+                            const parsed = new Date(batchId.date_tracked);
+                            if (!isNaN(parsed.getTime())) return parsed;
+                        }
+                        // Try created_at
+                        if (batchId.created_at) {
+                            const parsed = new Date(batchId.created_at);
+                            if (!isNaN(parsed.getTime())) return parsed;
+                        }
+                        // Try combining date_tracked with batch_start_time
+                        if (batchId.date_tracked && batchId.batch_start_time) {
+                            const parsed = new Date(`${batchId.date_tracked}T${batchId.batch_start_time}`);
+                            if (!isNaN(parsed.getTime())) return parsed;
+                        }
+                        // Try combining date_tracked with batch_end_time
+                        if (batchId.date_tracked && batchId.batch_end_time) {
+                            const parsed = new Date(`${batchId.date_tracked}T${batchId.batch_end_time}`);
+                            if (!isNaN(parsed.getTime())) return parsed;
+                        }
+                        // Try 's' field (batch start timestamp)
+                        if (batchId.s) {
+                            const parsed = new Date(batchId.s);
+                            if (!isNaN(parsed.getTime())) return parsed;
+                        }
+                        // Try 'e' field (batch end timestamp)
+                        if (batchId.e) {
+                            const parsed = new Date(batchId.e);
+                            if (!isNaN(parsed.getTime())) return parsed;
+                        }
+                        // Try 'd' field (date string)
+                        if (batchId.d) {
+                            const parsed = new Date(batchId.d);
+                            if (!isNaN(parsed.getTime())) return parsed;
+                        }
+                    }
+                    // Check if batchId is a Date object
+                    else if (batchId instanceof Date) {
+                        return batchId;
+                    }
+                    // Check if batchId is a string
+                    else if (typeof batchId === 'string') {
+                        const parsed = new Date(batchId);
+                        if (!isNaN(parsed.getTime())) return parsed;
+                    } else if (typeof batchId === 'number') {
+                        // Might be a timestamp
+                        return new Date(batchId);
+                    }
+                    return null;
+                }).filter(date => date !== null && !isNaN(date.getTime()));
+
+                if (dates.length > 0) {
+                    // Find earliest date for İlk Veri
+                    firstDataDate = new Date(Math.min(...dates.map(d => d.getTime())));
+                    // Find latest date for Son Veri
+                    const latestFromBatchIds = new Date(Math.max(...dates.map(d => d.getTime())));
+                    // Use the later of lastActivity or latest from batchIds
+                    if (!lastDataDate || latestFromBatchIds > lastDataDate) {
+                        lastDataDate = latestFromBatchIds;
+                    }
+                }
+            } catch (error) {
+                console.warn('Error processing batchIds for user:', user.name, error);
+            }
+        }
+
+        // Fallback: if we still don't have firstDataDate, use lastDataDate
+        if (!firstDataDate && lastDataDate) {
+            firstDataDate = lastDataDate;
+        }
+
+        return {
+            userId: user.userId,
+            name: user.name,
+            firstData: firstDataDate,
+            lastData: lastDataDate,
+            activeTime: user.activeTime ? user.activeTime.total : 0,
+            appCount: user.apps ? user.apps.length : 0,
+            websiteCount: user.websites ? user.websites.length : 0,
+            sessionCount: user.sessionCount || 0
+        };
+    });
+
+    filteredCalisanlarData = [...calisanlarData];
+    console.log('Çalışanlar data loaded:', calisanlarData.length, 'users');
+    // Apply default A-Z sorting
+    sortCalisanlarData('name-az');
+    renderCalisanlarTable();
+}
+
+function setupCalisanlarEventListeners() {
+    // Search functionality
+    const searchInput = document.getElementById('calisanlar-search');
+    const clearSearchBtn = document.getElementById('calisanlar-clear-search');
+
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.trim();
+            filterCalisanlarData(searchTerm);
+
+            // Show/hide clear button
+            if (clearSearchBtn) {
+                clearSearchBtn.style.display = searchTerm ? 'flex' : 'none';
+            }
+        });
+    }
+
+    if (clearSearchBtn) {
+        clearSearchBtn.addEventListener('click', () => {
+            if (searchInput) {
+                searchInput.value = '';
+                filterCalisanlarData('');
+                clearSearchBtn.style.display = 'none';
+            }
+        });
+    }
+
+    // Sort select
+    const sortSelect = document.getElementById('calisanlar-sort-select');
+    if (sortSelect) {
+        sortSelect.addEventListener('change', (e) => {
+            sortCalisanlarData(e.target.value);
+        });
+    }
+
+    // Delete modal buttons
+    const deleteModal = document.getElementById('delete-user-modal');
+    const deleteConfirmBtn = document.getElementById('delete-user-confirm');
+    const deleteCancelBtn = document.getElementById('delete-user-cancel');
+
+    if (deleteConfirmBtn) {
+        deleteConfirmBtn.addEventListener('click', () => {
+            if (userToDelete) {
+                performUserDeletion(userToDelete);
+                deleteModal.style.display = 'none';
+                userToDelete = null;
+            }
+        });
+    }
+
+    if (deleteCancelBtn) {
+        deleteCancelBtn.addEventListener('click', () => {
+            deleteModal.style.display = 'none';
+            userToDelete = null;
+        });
+    }
+
+    // Close modal when clicking outside
+    if (deleteModal) {
+        deleteModal.addEventListener('click', (e) => {
+            if (e.target === deleteModal) {
+                deleteModal.style.display = 'none';
+                userToDelete = null;
+            }
+        });
+    }
+
+    // Event delegation for edit and delete buttons in Çalışanlar table
+    const tbody = document.getElementById('calisanlar-tbody');
+    if (tbody) {
+        tbody.addEventListener('click', (e) => {
+            const editBtn = e.target.closest('.calisan-edit-btn');
+            const deleteBtn = e.target.closest('.calisan-delete-btn');
+
+            if (editBtn) {
+                e.stopPropagation();
+                const userId = editBtn.getAttribute('data-user-id');
+                const displayName = editBtn.getAttribute('data-display-name');
+                openEditUsernameModal(userId, displayName);
+            } else if (deleteBtn) {
+                e.stopPropagation();
+                const userId = deleteBtn.getAttribute('data-user-id');
+                const displayName = deleteBtn.getAttribute('data-display-name');
+                showDeleteUserModal(userId, displayName);
+            }
+        });
+    }
+}
+
+function filterCalisanlarData(searchTerm) {
+    if (!searchTerm) {
+        filteredCalisanlarData = [...calisanlarData];
+    } else {
+        // Normalize search term for Turkish character matching
+        const normalizedSearch = normalizeForTurkishSearch(searchTerm);
+
+        filteredCalisanlarData = calisanlarData.filter(user => {
+            const normalizedName = normalizeForTurkishSearch(user.name);
+            return normalizedName.includes(normalizedSearch);
+        });
+    }
+    renderCalisanlarTable();
+}
+
+function sortCalisanlarData(sortType) {
+    filteredCalisanlarData.sort((a, b) => {
+        switch (sortType) {
+            case 'name-az':
+                return a.name.localeCompare(b.name, 'tr');
+            case 'name-za':
+                return b.name.localeCompare(a.name, 'tr');
+            case 'active-time-desc':
+                return b.activeTime - a.activeTime;
+            case 'active-time-asc':
+                return a.activeTime - b.activeTime;
+            case 'first-data-recent':
+                const aFirstTime = a.firstData ? a.firstData.getTime() : 0;
+                const bFirstTime = b.firstData ? b.firstData.getTime() : 0;
+                return bFirstTime - aFirstTime;
+            case 'first-data-oldest':
+                const aFirstTimeOld = a.firstData ? a.firstData.getTime() : 0;
+                const bFirstTimeOld = b.firstData ? b.firstData.getTime() : 0;
+                return aFirstTimeOld - bFirstTimeOld;
+            case 'last-data-recent':
+                const aLastTime = a.lastData ? a.lastData.getTime() : 0;
+                const bLastTime = b.lastData ? b.lastData.getTime() : 0;
+                return bLastTime - aLastTime;
+            case 'last-data-oldest':
+                const aLastTimeOld = a.lastData ? a.lastData.getTime() : 0;
+                const bLastTimeOld = b.lastData ? b.lastData.getTime() : 0;
+                return aLastTimeOld - bLastTimeOld;
+            default:
+                return 0;
+        }
+    });
+    renderCalisanlarTable();
+}
+
+function renderCalisanlarTable() {
+    const tbody = document.getElementById('calisanlar-tbody');
+    const countElement = document.getElementById('calisanlar-count');
+
+    console.log('Rendering Çalışanlar table...', filteredCalisanlarData.length, 'users to display');
+    console.log('tbody element found:', !!tbody);
+
+    if (!tbody) {
+        console.error('Çalışanlar tbody element not found!');
+        return;
+    }
+
+    // Update count
+    if (countElement) {
+        countElement.textContent = `${filteredCalisanlarData.length} çalışan`;
+    }
+
+    // Show message if no data
+    if (filteredCalisanlarData.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" style="text-align: center; padding: 3rem; color: #6c757d;">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 1rem;">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                    <div style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem;">Henüz Çalışan Verisi Bulunmuyor</div>
+                    <div style="font-size: 0.9rem;">Verileri güncelleyerek çalışan listesini görüntüleyebilirsiniz.</div>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    // Render rows
+    tbody.innerHTML = filteredCalisanlarData.map((user, index) => {
+        const firstDataStr = user.firstData ? formatDateTurkish(user.firstData) : '-';
+        const lastDataStr = user.lastData ? formatDateTurkish(user.lastData) : '-';
+        const activeTimeStr = formatSecondsToHMS(user.activeTime);
+        const displayName = getDisplayName(user.userId);
+
+        return `
+            <tr>
+                <td class="row-number">${index + 1}</td>
+                <td>${escapeHtml(displayName)}</td>
+                <td>${firstDataStr}</td>
+                <td>${lastDataStr}</td>
+                <td>${activeTimeStr}</td>
+                <td>${user.appCount}</td>
+                <td>${user.websiteCount}</td>
+                <td>
+                    <div class="action-cell-wrapper">
+                        <button class="actions-menu-btn" onclick="event.stopPropagation(); toggleActionsMenu('calisan-${index}', '${user.userId.replace(/'/g, "\\'")}', '${displayName.replace(/'/g, "\\'")}')">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                <circle cx="12" cy="5" r="2"></circle>
+                                <circle cx="12" cy="12" r="2"></circle>
+                                <circle cx="12" cy="19" r="2"></circle>
+                            </svg>
+                        </button>
+                        <div class="actions-dropdown" id="actions-dropdown-calisan-${index}">
+                            <button class="actions-dropdown-item edit calisan-edit-btn" data-user-id="${escapeHtml(user.userId)}" data-display-name="${escapeHtml(displayName)}">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                </svg>
+                                Düzenle
+                            </button>
+                            <button class="actions-dropdown-item delete calisan-delete-btn" data-user-id="${escapeHtml(user.userId)}" data-display-name="${escapeHtml(displayName)}">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                </svg>
+                                Sil
+                            </button>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function formatDateTurkish(date) {
+    if (!date) return '-';
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return '-';
+    return d.toLocaleDateString('tr-TR', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    });
+}
+
+function formatSecondsToHMS(seconds) {
+    if (!seconds || seconds === 0) return '0sa 0dk 0sn';
+
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+
+    return `${hours}sa ${minutes}dk ${secs}sn`;
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function showDeleteUserModal(userId, userName) {
+    const modal = document.getElementById('delete-user-modal');
+    const userNameElement = document.getElementById('delete-user-name');
+
+    if (!modal || !userNameElement) return;
+
+    userToDelete = userId;
+    userNameElement.textContent = userName;
+    modal.style.display = 'flex';
+}
+
+function performUserDeletion(userId) {
+    console.log(`Deleting user: ${userId}`);
+
+    // Load current persisted users
+    const persistedUsers = loadPersistedUsers();
+
+    // Filter out the user to delete
+    const updatedUsers = persistedUsers.filter(user => user.userId !== userId);
+
+    // Save back to localStorage
+    savePersistedUsers(updatedUsers);
+
+    // Update global users array
+    users = updatedUsers;
+    filteredUsers = [...users];
+
+    // Reload çalışanlar data
+    loadCalisanlarData();
+
+    // Update other pages if they're currently visible
+    const currentPage = router.getCurrentPage();
+    if (currentPage === 'dashboard') {
+        filterUsersByDateRange();
+        renderDashboard();
+        updateCharts();
+    } else if (currentPage === 'table') {
+        updateUserTable();
+    } else if (currentPage === 'reports') {
+        // Refresh reports if needed
+        if (typeof setupReportsPage === 'function') {
+            setupReportsPage();
+        }
+    }
+
+    // Show success message
+    setTimeout(() => {
+        turkishAlert(`${userId} kullanıcısının tüm verileri başarıyla silindi.`);
+    }, 100);
+}
+
+// ============================================================================
+// EKIPLER (TEAMS) PAGE FUNCTIONALITY
+// ============================================================================
+
+// Teams data management
+let teamsData = [];
+let filteredTeamsData = [];
+let currentEditingTeam = null;
+const TEAMS_STORAGE_KEY = 'kta_teams_v1';
+
+// Load teams from localStorage
+function loadTeams() {
+    try {
+        const stored = localStorage.getItem(TEAMS_STORAGE_KEY);
+        if (stored) {
+            teamsData = JSON.parse(stored);
+            console.log('Teams loaded from localStorage:', teamsData.length);
+        } else {
+            teamsData = [];
+        }
+        return teamsData;
+    } catch (error) {
+        console.error('Error loading teams:', error);
+        teamsData = [];
+        return [];
+    }
+}
+
+// Save teams to localStorage
+function saveTeams(teams) {
+    try {
+        localStorage.setItem(TEAMS_STORAGE_KEY, JSON.stringify(teams));
+        console.log('Teams saved to localStorage:', teams.length);
+        return true;
+    } catch (error) {
+        console.error('Error saving teams:', error);
+        return false;
+    }
+}
+
+// Setup Ekipler page
+function setupEkiplerPage() {
+    console.log('Setting up Ekipler page...');
+    loadTeams();
+    filteredTeamsData = [...teamsData];
+    renderTeamsGrid();
+    setupEkiplerEventListeners();
+}
+
+// Setup event listeners for Ekipler page
+function setupEkiplerEventListeners() {
+    // Create team button
+    const createTeamBtn = document.getElementById('create-team-btn');
+    console.log('Create team button found:', !!createTeamBtn);
+    if (createTeamBtn) {
+        createTeamBtn.addEventListener('click', () => {
+            console.log('Create team button clicked!');
+            openCreateTeamModal();
+        });
+    } else {
+        console.error('Create team button not found!');
+    }
+
+    // Team search
+    const teamsSearch = document.getElementById('teams-search');
+    if (teamsSearch) {
+        teamsSearch.addEventListener('input', (e) => {
+            filterTeamsData(e.target.value);
+        });
+    }
+
+    // Clear search button
+    const clearSearchBtn = document.getElementById('teams-clear-search');
+    if (clearSearchBtn && teamsSearch) {
+        clearSearchBtn.addEventListener('click', () => {
+            teamsSearch.value = '';
+            clearSearchBtn.style.display = 'none';
+            filterTeamsData('');
+        });
+
+        teamsSearch.addEventListener('input', (e) => {
+            clearSearchBtn.style.display = e.target.value ? 'block' : 'none';
+        });
+    }
+
+    // Team modal event listeners
+    setupTeamModalListeners();
+}
+
+// Setup team modal listeners
+function setupTeamModalListeners() {
+    // Close modal buttons
+    const teamModalClose = document.getElementById('team-modal-close');
+    const teamModalCancel = document.getElementById('team-modal-cancel');
+    if (teamModalClose) teamModalClose.addEventListener('click', closeTeamModal);
+    if (teamModalCancel) teamModalCancel.addEventListener('click', closeTeamModal);
+
+    // Close modal when clicking outside
+    const teamModal = document.getElementById('team-modal');
+    if (teamModal) {
+        teamModal.addEventListener('click', (e) => {
+            if (e.target === teamModal) {
+                closeTeamModal();
+            }
+        });
+    }
+
+    const viewTeamModal = document.getElementById('view-team-modal');
+    if (viewTeamModal) {
+        viewTeamModal.addEventListener('click', (e) => {
+            if (e.target === viewTeamModal) {
+                closeViewTeamModal();
+            }
+        });
+    }
+
+    const deleteTeamModal = document.getElementById('delete-team-modal');
+    if (deleteTeamModal) {
+        deleteTeamModal.addEventListener('click', (e) => {
+            if (e.target === deleteTeamModal) {
+                closeDeleteTeamModal();
+            }
+        });
+    }
+
+    // Save team button
+    const saveBtn = document.getElementById('team-modal-save');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', saveTeam);
+    }
+
+    // Employee search in modal
+    const employeeSearch = document.getElementById('employee-search');
+    if (employeeSearch) {
+        employeeSearch.addEventListener('input', (e) => {
+            filterEmployeeList(e.target.value);
+        });
+    }
+
+    // View team modal close
+    const viewTeamModalClose = document.getElementById('view-team-modal-close');
+    if (viewTeamModalClose) {
+        viewTeamModalClose.addEventListener('click', closeViewTeamModal);
+    }
+
+    // Edit team button
+    const editTeamBtn = document.getElementById('edit-team-btn');
+    if (editTeamBtn) {
+        editTeamBtn.addEventListener('click', () => {
+            if (currentEditingTeam) {
+                closeViewTeamModal();
+                openEditTeamModal(currentEditingTeam);
+            }
+        });
+    }
+
+    // Delete team button
+    const deleteTeamBtn = document.getElementById('delete-team-btn');
+    if (deleteTeamBtn) {
+        deleteTeamBtn.addEventListener('click', () => {
+            if (currentEditingTeam) {
+                showDeleteTeamModal(currentEditingTeam.id, currentEditingTeam.name);
+            }
+        });
+    }
+
+    // Delete confirmation modal
+    const deleteTeamCancel = document.getElementById('delete-team-cancel');
+    const deleteTeamConfirm = document.getElementById('delete-team-confirm');
+    if (deleteTeamCancel) {
+        deleteTeamCancel.addEventListener('click', closeDeleteTeamModal);
+    }
+    if (deleteTeamConfirm) {
+        deleteTeamConfirm.addEventListener('click', confirmDeleteTeam);
+    }
+}
+
+// Filter teams by search term
+function filterTeamsData(searchTerm) {
+    const normalizedSearch = normalizeForTurkishSearch(searchTerm);
+    filteredTeamsData = teamsData.filter(team => {
+        const normalizedName = normalizeForTurkishSearch(team.name);
+        const normalizedDesc = normalizeForTurkishSearch(team.description || '');
+        return normalizedName.includes(normalizedSearch) || normalizedDesc.includes(normalizedSearch);
+    });
+    renderTeamsGrid();
+}
+
+// Render teams grid
+function renderTeamsGrid() {
+    const teamsGrid = document.getElementById('teams-grid');
+    const emptyState = document.getElementById('teams-empty-state');
+    const countElement = document.getElementById('teams-count');
+
+    if (!teamsGrid) return;
+
+    // Update count
+    if (countElement) {
+        countElement.textContent = `${filteredTeamsData.length} ekip`;
+    }
+
+    // Show/hide empty state
+    if (filteredTeamsData.length === 0) {
+        teamsGrid.style.display = 'none';
+        if (emptyState) emptyState.style.display = 'block';
+        return;
+    }
+
+    teamsGrid.style.display = 'grid';
+    if (emptyState) emptyState.style.display = 'none';
+
+    // Render team cards
+    teamsGrid.innerHTML = filteredTeamsData.map(team => {
+        const memberCount = team.members ? team.members.length : 0;
+        const createdDate = team.createdAt ? formatDateTurkish(new Date(team.createdAt)) : '-';
+
+        return `
+            <div class="team-card" onclick="viewTeamDetails('${team.id}')">
+                <div class="team-card-header">
+                    <div class="team-card-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                    </div>
+                    <div class="team-card-title">
+                        <h3>${escapeHtml(team.name)}</h3>
+                        <span class="team-member-badge">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="9" cy="7" r="4"></circle>
+                            </svg>
+                            ${memberCount} üye
+                        </span>
+                    </div>
+                </div>
+                ${team.description ? `<div class="team-card-description">${escapeHtml(team.description)}</div>` : ''}
+                <div class="team-card-footer">
+                    <div class="team-card-date">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                        </svg>
+                        ${createdDate}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Open create team modal
+function openCreateTeamModal() {
+    console.log('openCreateTeamModal called');
+    currentEditingTeam = null;
+    const modal = document.getElementById('team-modal');
+    const title = document.getElementById('team-modal-title');
+
+    console.log('Modal element found:', !!modal);
+    console.log('Title element found:', !!title);
+
+    if (title) title.textContent = 'Yeni Ekip Oluştur';
+
+    // Reset form
+    resetTeamForm();
+
+    // Load employee list
+    loadEmployeeList();
+
+    // Show modal
+    if (modal) {
+        console.log('Adding show class to modal');
+        modal.classList.add('show');
+    } else {
+        console.error('Modal element not found!');
+    }
+}
+
+// Open edit team modal
+function openEditTeamModal(team) {
+    currentEditingTeam = team;
+    const modal = document.getElementById('team-modal');
+    const title = document.getElementById('team-modal-title');
+
+    if (title) title.textContent = 'Ekibi Düzenle';
+
+    // Fill form with team data
+    document.getElementById('team-name').value = team.name;
+
+    // Load employee list with selections
+    loadEmployeeList(team.members || []);
+
+    // Show modal
+    if (modal) modal.classList.add('show');
+}
+
+// Close team modal
+function closeTeamModal() {
+    const modal = document.getElementById('team-modal');
+    if (modal) modal.classList.remove('show');
+    resetTeamForm();
+}
+
+// Reset team form
+function resetTeamForm() {
+    const teamName = document.getElementById('team-name');
+    const empSearch = document.getElementById('employee-search');
+    const selectedCount = document.getElementById('selected-count');
+    const selectedSection = document.getElementById('selected-employees-section');
+
+    if (teamName) teamName.value = '';
+    if (empSearch) empSearch.value = '';
+    if (selectedCount) selectedCount.textContent = '0 çalışan seçildi';
+    if (selectedSection) selectedSection.style.display = 'none';
+}
+
+// Load employee list for selection
+function loadEmployeeList(selectedMembers = []) {
+    const employeeList = document.getElementById('employee-list');
+    if (!employeeList) return;
+
+    const allUsers = loadPersistedUsers();
+
+    // Sort users alphabetically by display name
+    const sortedUsers = allUsers.sort((a, b) => {
+        const nameA = getDisplayName(a.userId).toLowerCase();
+        const nameB = getDisplayName(b.userId).toLowerCase();
+        return nameA.localeCompare(nameB, 'tr');
+    });
+
+    employeeList.innerHTML = sortedUsers.map(user => {
+        const isSelected = selectedMembers.some(m => m.userId === user.userId);
+        const displayName = getDisplayName(user.userId);
+
+        return `
+            <div class="employee-checkbox-item ${isSelected ? 'selected' : ''}" data-user-id="${user.userId}">
+                <input type="checkbox"
+                       id="emp-${user.userId}"
+                       value="${user.userId}"
+                       ${isSelected ? 'checked' : ''}
+                       data-user-name="${escapeHtml(displayName)}">
+                <label for="emp-${user.userId}">${escapeHtml(displayName)}</label>
+            </div>
+        `;
+    }).join('');
+
+    // Add event delegation for checkboxes
+    employeeList.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            handleEmployeeSelection(this);
+        });
+    });
+
+    // Add click handler for the entire item (excluding checkbox and label)
+    employeeList.querySelectorAll('.employee-checkbox-item').forEach(item => {
+        item.addEventListener('click', function(e) {
+            // Only toggle if clicking the item itself, not the checkbox or label
+            if (e.target === this) {
+                const checkbox = this.querySelector('input[type="checkbox"]');
+                if (checkbox) {
+                    checkbox.checked = !checkbox.checked;
+                    handleEmployeeSelection(checkbox);
+                }
+            }
+        });
+    });
+
+    // Update selected count
+    updateSelectedCount();
+}
+
+// Toggle employee checkbox when clicking the entire item
+function toggleEmployeeCheckbox(userId) {
+    const checkbox = document.getElementById(`emp-${userId}`);
+    if (checkbox) {
+        checkbox.checked = !checkbox.checked;
+        handleEmployeeSelection(checkbox);
+    }
+}
+
+// Handle employee checkbox selection
+function handleEmployeeSelection(checkbox) {
+    const item = checkbox.closest('.employee-checkbox-item');
+    if (checkbox.checked) {
+        item.classList.add('selected');
+    } else {
+        item.classList.remove('selected');
+    }
+
+    // Update selected count
+    updateSelectedCount();
+}
+
+// Update selected employees count
+function updateSelectedCount() {
+    const checkboxes = document.querySelectorAll('#employee-list input[type="checkbox"]:checked');
+    const selectedCount = document.getElementById('selected-count');
+
+    if (selectedCount) {
+        selectedCount.textContent = `${checkboxes.length} çalışan seçildi`;
+    }
+}
+
+// Filter employee list
+function filterEmployeeList(searchTerm) {
+    const normalizedSearch = normalizeForTurkishSearch(searchTerm);
+    const items = document.querySelectorAll('.employee-checkbox-item');
+
+    items.forEach(item => {
+        const userId = item.getAttribute('data-user-id');
+        const displayName = getDisplayName(userId);
+        const normalizedText = normalizeForTurkishSearch(displayName);
+
+        if (normalizedText.includes(normalizedSearch)) {
+            item.style.display = 'flex';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+// Save team (create or update)
+function saveTeam() {
+    const teamName = document.getElementById('team-name').value.trim();
+
+    if (!teamName) {
+        turkishAlert('Lütfen ekip adını girin.');
+        return;
+    }
+
+    // Get selected members
+    const checkboxes = document.querySelectorAll('#employee-list input[type="checkbox"]:checked');
+    if (checkboxes.length === 0) {
+        turkishAlert('Lütfen en az bir çalışan seçin.');
+        return;
+    }
+
+    const members = Array.from(checkboxes).map(cb => {
+        // Preserve existing titles if editing, otherwise empty
+        let existingTitle = '';
+        if (currentEditingTeam && currentEditingTeam.members) {
+            const existing = currentEditingTeam.members.find(m => m.userId === cb.value);
+            if (existing) {
+                existingTitle = existing.title || '';
+            }
+        }
+
+        return {
+            userId: cb.value,
+            name: cb.dataset.userName,
+            title: existingTitle
+        };
+    });
+
+    if (currentEditingTeam) {
+        // Update existing team
+        const teamIndex = teamsData.findIndex(t => t.id === currentEditingTeam.id);
+        if (teamIndex !== -1) {
+            teamsData[teamIndex] = {
+                ...teamsData[teamIndex],
+                name: teamName,
+                members: members,
+                updatedAt: new Date().toISOString()
+            };
+        }
+    } else {
+        // Create new team
+        const newTeam = {
+            id: 'team_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+            name: teamName,
+            members: members,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+        teamsData.push(newTeam);
+    }
+
+    // Save to localStorage
+    saveTeams(teamsData);
+
+    // Refresh display
+    filteredTeamsData = [...teamsData];
+    renderTeamsGrid();
+
+    // Close modal
+    closeTeamModal();
+
+    // Show success message
+    turkishAlert(currentEditingTeam ? 'Ekip başarıyla güncellendi.' : 'Ekip başarıyla oluşturuldu.');
+}
+
+// View team details
+function viewTeamDetails(teamId) {
+    const team = teamsData.find(t => t.id === teamId);
+    if (!team) return;
+
+    currentEditingTeam = team;
+
+    const modal = document.getElementById('view-team-modal');
+    document.getElementById('view-team-name').textContent = team.name;
+    document.getElementById('view-team-member-count').textContent = team.members.length;
+    document.getElementById('view-team-created-date').textContent = formatDateTurkish(new Date(team.createdAt));
+
+    // Render team members in list format
+    const membersList = document.getElementById('view-team-members');
+    if (membersList) {
+        membersList.innerHTML = team.members.map(member => {
+            const displayName = getDisplayName(member.userId);
+            return `
+                <div class="team-member-item">
+                    <div class="team-member-info">
+                        <div class="team-member-name">${escapeHtml(displayName)}</div>
+                        ${member.title ? `<div class="team-member-title">${escapeHtml(member.title)}</div>` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    if (modal) modal.classList.add('show');
+}
+
+// Close view team modal
+function closeViewTeamModal() {
+    const modal = document.getElementById('view-team-modal');
+    if (modal) modal.classList.remove('show');
+}
+
+// Show delete team confirmation modal
+function showDeleteTeamModal(teamId, teamName) {
+    const modal = document.getElementById('delete-team-modal');
+    document.getElementById('delete-team-name').textContent = teamName;
+    modal.dataset.teamId = teamId;
+    modal.classList.add('show');
+
+    // Close view modal
+    closeViewTeamModal();
+}
+
+// Close delete team modal
+function closeDeleteTeamModal() {
+    const modal = document.getElementById('delete-team-modal');
+    if (modal) {
+        modal.classList.remove('show');
+        delete modal.dataset.teamId;
+    }
+}
+
+// Confirm delete team
+function confirmDeleteTeam() {
+    const modal = document.getElementById('delete-team-modal');
+    const teamId = modal.dataset.teamId;
+
+    if (!teamId) return;
+
+    // Remove team from array
+    teamsData = teamsData.filter(t => t.id !== teamId);
+
+    // Save to localStorage
+    saveTeams(teamsData);
+
+    // Refresh display
+    filteredTeamsData = [...teamsData];
+    renderTeamsGrid();
+
+    // Close modal
+    closeDeleteTeamModal();
+
+    // Show success message
+    turkishAlert('Ekip başarıyla silindi.');
+}
+// ========================================
+// Username Mapping Functions
+// ========================================
+
+let currentEditingPCName = null;
+let activeDropdownId = null;
+
+/**
+ * Toggle actions dropdown menu
+ */
+function toggleActionsMenu(userId, pcName, displayName) {
+    const dropdownId = `actions-dropdown-${userId}`;
+    const dropdown = document.getElementById(dropdownId);
+    const button = dropdown.previousElementSibling;
+    
+    // Close any other open dropdowns
+    if (activeDropdownId && activeDropdownId !== dropdownId) {
+        const prevDropdown = document.getElementById(activeDropdownId);
+        const prevButton = prevDropdown?.previousElementSibling;
+        if (prevDropdown) {
+            prevDropdown.classList.remove('show');
+            prevButton?.classList.remove('active');
+        }
+    }
+    
+    // Toggle current dropdown
+    const isOpen = dropdown.classList.toggle('show');
+    button.classList.toggle('active', isOpen);
+    
+    activeDropdownId = isOpen ? dropdownId : null;
+}
+
+/**
+ * Close all dropdowns when clicking outside
+ */
+document.addEventListener('click', function(event) {
+    if (!event.target.closest('.actions-menu-btn') && !event.target.closest('.actions-dropdown')) {
+        if (activeDropdownId) {
+            const dropdown = document.getElementById(activeDropdownId);
+            const button = dropdown?.previousElementSibling;
+            if (dropdown) {
+                dropdown.classList.remove('show');
+                button?.classList.remove('active');
+            }
+            activeDropdownId = null;
+        }
+    }
+});
+
+/**
+ * Open edit username modal
+ */
+function openEditUsernameModal(pcName, currentDisplayName) {
+    currentEditingPCName = pcName;
+    
+    const modal = document.getElementById('edit-username-modal');
+    const pcNameSpan = document.getElementById('edit-modal-pc-name');
+    const input = document.getElementById('custom-username-input');
+    
+    pcNameSpan.textContent = pcName;
+    
+    // If already has custom name, show it; otherwise show PC name
+    const hasCustomName = window.userNameMapping.hasMapping(pcName);
+    input.value = hasCustomName ? currentDisplayName : '';
+    input.placeholder = hasCustomName ? currentDisplayName : 'Örn: Ahmet Yılmaz';
+    
+    modal.style.display = 'flex';
+    input.focus();
+    
+    // Close dropdown
+    if (activeDropdownId) {
+        const dropdown = document.getElementById(activeDropdownId);
+        dropdown?.classList.remove('show');
+        activeDropdownId = null;
+    }
+}
+
+/**
+ * Close edit username modal
+ */
+function closeEditUsernameModal() {
+    const modal = document.getElementById('edit-username-modal');
+    const form = document.getElementById('edit-username-form');
+    
+    modal.style.display = 'none';
+    form.reset();
+    currentEditingPCName = null;
+}
+
+/**
+ * Save username mapping
+ */
+function saveUsername(event) {
+    event.preventDefault();
+    
+    if (!currentEditingPCName) {
+        console.error('[Username] No PC name set for editing');
+        return;
+    }
+    
+    const input = document.getElementById('custom-username-input');
+    const customName = input.value.trim();
+    
+    if (!customName) {
+        turkishAlert('Lütfen bir kullanıcı adı giriniz');
+        return;
+    }
+    
+    // Save mapping
+    const success = window.userNameMapping.setDisplayName(currentEditingPCName, customName);
+    
+    if (success) {
+        console.log(`[Username] Mapping saved: ${currentEditingPCName} -> ${customName}`);
+
+        // Refresh the table and charts
+        updateUserTable();
+        createCharts();
+
+        // Refresh Çalışanlar page if it exists
+        if (typeof renderCalisanlarTable === 'function') {
+            renderCalisanlarTable();
+        }
+
+        // Close modal
+        closeEditUsernameModal();
+
+        // Show success message
+        turkishAlert(`Kullanıcı adı başarıyla güncellendi: ${customName}`);
+    } else {
+        turkishAlert('Kullanıcı adı kaydedilemedi');
+    }
+}
+
+/**
+ * Delete username mapping
+ */
+function deleteUserMapping(pcName) {
+    if (!pcName) return;
+    
+    const hasMapping = window.userNameMapping.hasMapping(pcName);
+    
+    if (!hasMapping) {
+        turkishAlert('Bu kullanıcı için özel ad bulunmuyor');
+        return;
+    }
+    
+    const customName = window.userNameMapping.getDisplayName(pcName);
+    
+    // Confirm deletion
+    if (confirm(`"${customName}" adını silmek istediğinizden emin misiniz?\n\nKullanıcı "${pcName}" olarak görünecektir.`)) {
+        const success = window.userNameMapping.removeMapping(pcName);
+        
+        if (success) {
+            console.log(`[Username] Mapping removed for: ${pcName}`);
+
+            // Refresh the table and charts
+            updateUserTable();
+            createCharts();
+
+            // Refresh Çalışanlar page if it exists
+            if (typeof renderCalisanlarTable === 'function') {
+                renderCalisanlarTable();
+            }
+
+            // Close dropdown
+            if (activeDropdownId) {
+                const dropdown = document.getElementById(activeDropdownId);
+                dropdown?.classList.remove('show');
+                activeDropdownId = null;
+            }
+
+            // Show success message
+            turkishAlert('Özel kullanıcı adı silindi');
+        } else {
+            turkishAlert('Kullanıcı adı silinemedi');
+        }
+    }
+}
+
+// Close modal when clicking outside
+document.addEventListener('click', function(event) {
+    const modal = document.getElementById('edit-username-modal');
+    if (event.target === modal) {
+        closeEditUsernameModal();
+    }
+});
+
+// Close modal with Escape key
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        const modal = document.getElementById('edit-username-modal');
+        if (modal && modal.style.display === 'flex') {
+            closeEditUsernameModal();
+        }
+    }
+});
+
+console.log('[Username Mapping] Functions loaded');

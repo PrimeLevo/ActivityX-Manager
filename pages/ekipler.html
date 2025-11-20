@@ -1,0 +1,149 @@
+<!-- Ekipler Section -->
+<section class="teams-section">
+    <!-- Teams List Header -->
+    <div class="section-header">
+        <div class="header-actions">
+            <button class="btn btn-primary" id="create-team-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                Yeni Ekip Oluştur
+            </button>
+            <div class="search-input-wrapper">
+                <input type="text" id="teams-search" placeholder="Ekip ara..." class="search-input">
+                <button type="button" id="teams-clear-search" class="clear-search-btn" style="display: none;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <span class="team-count" id="teams-count">0 ekip</span>
+        </div>
+    </div>
+
+    <!-- Teams Grid -->
+    <div class="teams-grid" id="teams-grid">
+        <!-- Team cards will be populated here -->
+    </div>
+
+    <!-- Empty State -->
+    <div class="teams-empty-state" id="teams-empty-state" style="display: none;">
+        <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+        </svg>
+        <h3>Henüz Ekip Oluşturulmamış</h3>
+        <p>Yeni bir ekip oluşturmak için yukarıdaki "Yeni Ekip Oluştur" butonuna tıklayın</p>
+    </div>
+</section>
+
+<!-- Create/Edit Team Modal -->
+<div class="modal" id="team-modal">
+    <div class="modal-content team-modal-content-fixed">
+        <div class="modal-header">
+            <h3 id="team-modal-title">Yeni Ekip Oluştur</h3>
+            <button class="modal-close" id="team-modal-close">&times;</button>
+        </div>
+        <div class="modal-body-fixed">
+            <!-- Team Info Form -->
+            <div class="team-form-section-fixed">
+                <div class="form-group">
+                    <label for="team-name">Ekip Adı <span class="required">*</span></label>
+                    <input type="text" id="team-name" class="form-input" placeholder="Örn: Yazılım Geliştirme Ekibi" required>
+                </div>
+            </div>
+
+            <!-- Employee Selection -->
+            <div class="team-form-section-fixed">
+                <h4>Ekip Üyeleri Seç</h4>
+                <div class="employee-search-wrapper">
+                    <input type="text" id="employee-search" class="form-input" placeholder="Çalışan ara...">
+                </div>
+                <div class="employee-list-scrollable" id="employee-list">
+                    <!-- Employee checkboxes will be populated here -->
+                </div>
+            </div>
+
+            <!-- Selected count -->
+            <div class="selected-employees-summary-fixed" id="selected-employees-summary">
+                <span id="selected-count">0 çalışan seçildi</span>
+            </div>
+        </div>
+        <div class="modal-footer-fixed">
+            <button class="btn btn-secondary" id="team-modal-cancel">İptal</button>
+            <button class="btn btn-primary" id="team-modal-save">Kaydet</button>
+        </div>
+    </div>
+</div>
+
+<!-- View Team Details Modal -->
+<div class="modal" id="view-team-modal">
+    <div class="modal-content team-modal-content-fixed">
+        <div class="modal-header">
+            <h3 id="view-team-name">Ekip Detayları</h3>
+            <button class="modal-close" id="view-team-modal-close">&times;</button>
+        </div>
+        <div class="modal-body-fixed">
+            <div class="team-details-section">
+                <div class="team-info-card">
+                    <div class="info-row">
+                        <label>Üye Sayısı:</label>
+                        <span id="view-team-member-count">0</span>
+                    </div>
+                    <div class="info-row">
+                        <label>Oluşturma Tarihi:</label>
+                        <span id="view-team-created-date">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="team-members-section">
+                <h4>Ekip Üyeleri</h4>
+                <div class="team-members-list-scrollable" id="view-team-members">
+                    <!-- Team members will be shown here -->
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer-fixed">
+            <button class="btn btn-danger" id="delete-team-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+                Sil
+            </button>
+            <button class="btn btn-secondary" id="edit-team-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+                Düzenle
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Team Confirmation Modal -->
+<div class="modal" id="delete-team-modal">
+    <div class="modal-content logout-modal-content">
+        <div class="modal-header">
+            <h3>Ekibi Sil</h3>
+        </div>
+        <div class="modal-body">
+            <p>
+                <strong id="delete-team-name"></strong> adlı ekibi silmek istediğinize emin misiniz?
+            </p>
+            <p style="color: #dc3545; margin-top: 10px;">
+                Bu işlem geri alınamaz.
+            </p>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="delete-team-cancel">İptal Et</button>
+                <button class="btn btn-danger" id="delete-team-confirm">Sil</button>
+            </div>
+        </div>
+    </div>
+</div>

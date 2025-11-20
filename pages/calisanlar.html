@@ -1,0 +1,67 @@
+<!-- Çalışanlar Section -->
+<section class="users-section">
+    <div class="section-header">
+        <div class="table-controls">
+            <select id="calisanlar-sort-select" class="sort-select">
+                <option value="name-az">İsme Göre Sırala (A-Z)</option>
+                <option value="name-za">İsme Göre Sırala (Z-A)</option>
+                <option value="active-time-desc">En Yüksek Aktivite Süresine Göre Sırala</option>
+                <option value="active-time-asc">En Düşük Aktivite Süresine Göre Sırala</option>
+                <option value="first-data-recent">En Yeni İlk Veriye Göre Sırala</option>
+                <option value="first-data-oldest">En Eski İlk Veriye Göre Sırala</option>
+                <option value="last-data-recent">En Yakın Son Aktivite Tarihine Göre Sırala</option>
+                <option value="last-data-oldest">En Uzak Son Aktivite Tarihine Göre Sırala</option>
+            </select>
+            <div class="search-input-wrapper">
+                <input type="text" id="calisanlar-search" placeholder="Çalışan ara..." class="search-input">
+                <button type="button" id="calisanlar-clear-search" class="clear-search-btn" style="display: none;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <span class="user-count" id="calisanlar-count">0 çalışan</span>
+        </div>
+    </div>
+    <div class="table-container">
+        <table class="users-table" id="calisanlar-table">
+            <thead>
+                <tr>
+                    <th class="row-number-header">#</th>
+                    <th>Kullanıcı Adı</th>
+                    <th>İlk Veri</th>
+                    <th>Son Veri</th>
+                    <th>Toplam Aktif Süre</th>
+                    <th>Uygulama Sayısı</th>
+                    <th>Web Sitesi Sayısı</th>
+                    <th>İşlemler</th>
+                </tr>
+            </thead>
+            <tbody id="calisanlar-tbody">
+                <!-- User rows will be populated here -->
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal" id="delete-user-modal">
+    <div class="modal-content logout-modal-content">
+        <div class="modal-header">
+            <h3>Çalışan Verisini Sil</h3>
+        </div>
+        <div class="modal-body">
+            <p>
+                <strong id="delete-user-name"></strong> adlı çalışanın tüm verilerini silmek istediğinize emin misiniz?
+            </p>
+            <p style="color: #dc3545; margin-top: 10px;">
+                Bu işlem geri alınamaz ve tüm aktivite verileri silinecektir.
+            </p>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="delete-user-cancel">İptal Et</button>
+                <button class="btn btn-danger" id="delete-user-confirm">Sil</button>
+            </div>
+        </div>
+    </div>
+</div>

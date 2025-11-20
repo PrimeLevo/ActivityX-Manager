@@ -1,0 +1,101 @@
+<!-- Users Table -->
+<section class="users-section">
+    <div class="section-header">
+        <div class="table-controls">
+            <select id="sort-select" class="sort-select">
+                <option value="name-az">İsme Göre Sırala (A-Z)</option>
+                <option value="name-za">İsme Göre Sırala (Z-A)</option>
+                <option value="active-time-desc">En Yüksek Aktivite Süresine Göre Sırala</option>
+                <option value="active-time-asc">En Düşük Aktivite Süresine Göre Sırala</option>
+                <option value="last-activity-recent">En Yakın Son Aktivite Tarihine Göre Sırala</option>
+                <option value="last-activity-oldest">En Uzak Son Aktivite Tarihine Göre Sırala</option>
+            </select>
+            <select id="team-filter-select" class="sort-select">
+                <option value="">Tüm Ekipler</option>
+                <!-- Teams will be populated dynamically -->
+            </select>
+            <div class="search-input-wrapper">
+                <input type="text" id="search-input" placeholder="Kullanıcı ara..." class="search-input">
+                <button type="button" id="clear-search" class="clear-search-btn" style="display: none;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div class="time-period-selector">
+                <button class="btn btn-secondary" data-period="daily">Bugün</button>
+                <button class="btn btn-secondary active" data-period="weekly">Haftalık</button>
+                <button class="btn btn-secondary" data-period="monthly">Aylık</button>
+                <button class="btn btn-secondary" data-period="annual">Yıllık</button>
+                <div class="custom-date-wrapper">
+                    <button class="btn btn-secondary" data-period="custom" id="custom-btn">Özel</button>
+                    <div class="custom-date-popup" id="custom-date-selector" style="display: none;">
+                        <div class="popup-arrow"></div>
+                        <div class="popup-content">
+                            <div class="date-range-container">
+                                <div class="date-row">
+                                    <label for="start-date-display" class="date-label">Başlangıç</label>
+                                    <div class="date-input-wrapper" style="position: relative; width: 160px;">
+                                        <div class="date-input-custom" id="start-date-display">
+                                            <span class="date-text">Tarih seçin</span>
+                                            <svg class="calendar-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                                <line x1="16" y1="2" x2="16" y2="6"></line>
+                                                <line x1="8" y1="2" x2="8" y2="6"></line>
+                                                <line x1="3" y1="10" x2="21" y2="10"></line>
+                                            </svg>
+                                        </div>
+                                        <div class="calendar-wrapper" id="start-calendar-wrapper">
+                                            <div class="custom-calendar" id="start-calendar"></div>
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-secondary btn-sm" id="cancel-date-range">İptal Et</button>
+                                </div>
+                                <div class="date-row">
+                                    <label for="end-date-display" class="date-label">Bitiş</label>
+                                    <div class="date-input-wrapper" style="position: relative; width: 160px;">
+                                        <div class="date-input-custom" id="end-date-display">
+                                            <span class="date-text">Tarih seçin</span>
+                                            <svg class="calendar-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                                <line x1="16" y1="2" x2="16" y2="6"></line>
+                                                <line x1="8" y1="2" x2="8" y2="6"></line>
+                                                <line x1="3" y1="10" x2="21" y2="10"></line>
+                                            </svg>
+                                        </div>
+                                        <div class="calendar-wrapper" id="end-calendar-wrapper">
+                                            <div class="custom-calendar" id="end-calendar"></div>
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-primary btn-sm" id="apply-date-range">Uygula</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <button class="btn btn-primary" id="apply-filters-btn">
+                Temizle
+            </button>
+        </div>
+    </div>
+    <div class="table-container">
+        <table class="users-table">
+            <thead>
+                <tr>
+                    <th class="row-number-header">#</th>
+                    <th>Kullanıcı Adı</th>
+                    <th>Aktif Süre</th>
+                    <th>En Çok Kullanılan Uygulamalar</th>
+                    <th>En Çok Ziyaret Edilen Web Siteleri</th>
+                    <th>Son Aktivite</th>
+                    <th>İşlemler</th>
+                </tr>
+            </thead>
+            <tbody id="users-table-body">
+                <!-- Users will be populated by JavaScript -->
+            </tbody>
+        </table>
+    </div>
+</section>

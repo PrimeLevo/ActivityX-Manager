@@ -1,0 +1,138 @@
+/* Responsive Table Controls for Aktivite Tablosu */
+
+/* Adjust table controls when sidebar is expanded */
+.sidebar:not(.collapsed) ~ .main-content .table-controls {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 0.5rem;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e0 transparent;
+}
+
+/* Custom scrollbar for webkit browsers */
+.sidebar:not(.collapsed) ~ .main-content .table-controls::-webkit-scrollbar {
+    height: 6px;
+}
+
+.sidebar:not(.collapsed) ~ .main-content .table-controls::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sidebar:not(.collapsed) ~ .main-content .table-controls::-webkit-scrollbar-thumb {
+    background: #cbd5e0;
+    border-radius: 3px;
+}
+
+.sidebar:not(.collapsed) ~ .main-content .table-controls::-webkit-scrollbar-thumb:hover {
+    background: #a0aec0;
+}
+
+/* Prevent shrinking of controls */
+.table-controls > * {
+    flex-shrink: 0;
+}
+
+/* Ensure minimum widths for controls */
+.table-controls .sort-select {
+    min-width: 200px;
+}
+
+.table-controls .search-input-wrapper {
+    min-width: 200px;
+    max-width: 250px;
+}
+
+.table-controls .time-period-selector {
+    flex-shrink: 0;
+    min-width: fit-content;
+}
+
+/* Alternative approach: Stack vertically on smaller viewports when sidebar is expanded */
+@media (max-width: 1400px) {
+    .sidebar:not(.collapsed) ~ .main-content .table-controls {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+        overflow-x: visible;
+    }
+
+    .sidebar:not(.collapsed) ~ .main-content .table-controls > * {
+        width: 100%;
+    }
+
+    .sidebar:not(.collapsed) ~ .main-content .table-controls .sort-select,
+    .sidebar:not(.collapsed) ~ .main-content .table-controls #team-filter-select {
+        width: 100%;
+        max-width: none;
+    }
+
+    .sidebar:not(.collapsed) ~ .main-content .table-controls .search-input-wrapper {
+        max-width: none;
+    }
+
+    .sidebar:not(.collapsed) ~ .main-content .table-controls .time-period-selector {
+        justify-content: space-between;
+        width: 100%;
+    }
+
+    .sidebar:not(.collapsed) ~ .main-content .table-controls #apply-filters-btn {
+        align-self: flex-start;
+    }
+}
+
+/* For very large screens, maintain horizontal layout */
+@media (min-width: 1401px) {
+    .sidebar:not(.collapsed) ~ .main-content .table-controls {
+        flex-wrap: wrap;
+    }
+
+    /* Adjust gap and padding for better spacing */
+    .sidebar:not(.collapsed) ~ .main-content .table-controls {
+        gap: 0.75rem;
+        row-gap: 0.75rem;
+    }
+
+    /* Group controls logically */
+    .sidebar:not(.collapsed) ~ .main-content .table-controls .time-period-selector {
+        order: 1;
+        flex: 1 1 auto;
+        min-width: 380px;
+    }
+
+    .sidebar:not(.collapsed) ~ .main-content .table-controls .sort-select {
+        order: -1;
+        flex: 0 1 auto;
+    }
+
+    .sidebar:not(.collapsed) ~ .main-content .table-controls #team-filter-select {
+        order: -1;
+        flex: 0 1 auto;
+    }
+
+    .sidebar:not(.collapsed) ~ .main-content .table-controls .search-input-wrapper {
+        order: 0;
+        flex: 0 1 auto;
+    }
+}
+
+/* Compact mode for filter buttons */
+.time-period-selector.compact-mode {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.time-period-selector.compact-mode .btn {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.85rem;
+}
+
+/* Add transition for smooth resizing */
+.table-controls {
+    transition: all 0.3s ease;
+}
+
+/* Ensure proper spacing with table */
+.section-header + .table-container {
+    margin-top: 1rem;
+}

@@ -1,0 +1,35 @@
+/* Dashboard Page Styles */
+
+.dashboard-header {
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 2px solid #e9ecef;
+    position: relative;
+    z-index: 100;
+}
+
+.page-title {
+    font-size: 28px;
+    color: #2B3240;
+    margin: 0 0 1.5rem 0;
+    font-weight: 600;
+}
+
+.dashboard-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.dashboard-controls .time-period-selector {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+#dashboard-refresh-btn {
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+}

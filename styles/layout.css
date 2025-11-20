@@ -1,0 +1,327 @@
+/* Sidebar Layout Styles */
+
+.app-layout {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* Sidebar Styles - Enhanced Professional Look */
+.sidebar {
+    width: 300px;
+    min-width: 300px;
+    background: #ffffff;
+    position: relative;
+    color: #2B3240;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+    z-index: 100;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+}
+
+/* Collapsed State - Default state */
+.sidebar.collapsed {
+    width: 60px;
+    min-width: 60px;
+}
+
+.sidebar.collapsed .nav-item-text {
+    opacity: 0;
+    width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.sidebar.collapsed .sidebar-logo-text {
+    opacity: 0;
+    width: 0;
+    overflow: hidden;
+}
+
+.sidebar.collapsed .nav-item {
+    justify-content: center;
+    padding: 12px;
+}
+
+.sidebar.collapsed .nav-item-icon {
+    margin-right: 0;
+}
+
+/* Logo Section */
+.sidebar-logo-section {
+    padding: 0;
+    border-bottom: none;
+    position: relative;
+    z-index: 1;
+    display: none;
+    align-items: center;
+    justify-content: flex-start;
+}
+
+.sidebar-logo-text {
+    font-size: 17px;
+    font-weight: 600;
+    color: #2B3240;
+    white-space: nowrap;
+    transition: opacity 0.3s ease;
+    letter-spacing: 0.3px;
+}
+
+/* Header with Toggle - Hidden, only for manual control */
+.sidebar-header {
+    display: none;
+}
+
+.sidebar-toggle {
+    display: none;
+}
+
+/* Navigation */
+.sidebar-nav {
+    flex: 1;
+    padding: 20px 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    position: relative;
+    z-index: 1;
+}
+
+/* Custom Scrollbar */
+.sidebar-nav::-webkit-scrollbar {
+    width: 6px;
+}
+
+.sidebar-nav::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 3px;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.15);
+}
+
+/* Navigation Items */
+.nav-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    margin: 4px 12px;
+    color: #6B7280;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    border-radius: 8px;
+    position: relative;
+    overflow: visible;
+}
+
+.nav-item:hover {
+    background: rgba(123, 160, 152, 0.1);
+    color: #2B3240;
+}
+
+.nav-item:hover .nav-item-text {
+    transform: translateX(1px);
+}
+
+/* Active State */
+.nav-item.active {
+    background: rgba(123, 160, 152, 0.15);
+    color: #2B3240;
+}
+
+.nav-item.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 24px;
+    background: #7BA098;
+    border-radius: 0 2px 2px 0;
+}
+
+/* Icon Styling */
+.nav-item-icon {
+    margin-right: 14px;
+    min-width: 20px;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.sidebar.collapsed .nav-item-icon {
+    margin-right: 0;
+}
+
+/* Text Styling */
+.nav-item-text {
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+    transition: opacity 0.3s ease, transform 0.15s ease;
+}
+
+/* Main Layout Area */
+.main-layout {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.main-layout .header {
+    width: 100%;
+}
+
+.page-content {
+    flex: 1;
+    overflow-y: auto;
+    background: #f8f9fa;
+    width: 100%;
+    padding: 2rem;
+}
+
+/* Sidebar Footer */
+.sidebar-footer {
+    padding: 12px;
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.sidebar-footer-btn {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    background: rgba(0, 0, 0, 0.05);
+    border: none;
+    border-radius: 8px;
+    color: #6B7280;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+    font-weight: 500;
+    width: 100%;
+    text-align: left;
+    font-family: inherit;
+}
+
+.sidebar-footer-btn:hover {
+    background: rgba(123, 160, 152, 0.1);
+    color: #2B3240;
+}
+
+.sidebar-footer-btn svg {
+    margin-right: 12px;
+    min-width: 18px;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+.sidebar.collapsed .sidebar-footer-btn {
+    justify-content: center;
+    padding: 12px;
+}
+
+.sidebar.collapsed .sidebar-footer-btn svg {
+    margin-right: 0;
+}
+
+.sidebar.collapsed .sidebar-footer-text {
+    opacity: 0;
+    width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.sidebar-footer-text {
+    transition: opacity 0.3s ease, width 0.3s ease;
+}
+
+/* User Profile Section in Footer */
+.sidebar-user-profile {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    margin: 0 0 8px 0;
+    background: rgba(0, 0, 0, 0.05);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.sidebar.collapsed .sidebar-user-profile {
+    justify-content: center;
+    padding: 12px;
+}
+
+.sidebar-user-profile:hover {
+    background: rgba(123, 160, 152, 0.1);
+}
+
+.sidebar-user-avatar {
+    width: 20px;
+    height: 20px;
+    margin-right: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: #6B7280;
+}
+
+.sidebar-user-avatar svg {
+    width: 20px;
+    height: 20px;
+}
+
+.sidebar-user-info {
+    flex: 1;
+    min-width: 0;
+    transition: opacity 0.3s ease;
+}
+
+.sidebar-user-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #2B3240;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sidebar-user-role {
+    font-size: 12px;
+    color: #6B7280;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sidebar.collapsed .sidebar-user-info {
+    opacity: 0;
+    width: 0;
+    overflow: hidden;
+}
+
+.sidebar.collapsed .sidebar-user-avatar {
+    margin-right: 0;
+}

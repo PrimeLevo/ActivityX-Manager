@@ -5,167 +5,121 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ActivityX</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles/layout.css">
+    <link rel="stylesheet" href="styles/pages/reports.css">
+    <link rel="stylesheet" href="styles/pages/dashboard.css">
+    <link rel="stylesheet" href="styles/pages/calisanlar.css">
+    <link rel="stylesheet" href="styles/pages/ekipler.css">
+    <link rel="stylesheet" href="styles/pages/profile.css">
+    <link rel="stylesheet" href="styles/pages/table-responsive.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar collapsed">
+            <!-- Logo Section -->
+            <div class="sidebar-logo-section">
+                <span class="sidebar-logo-text">ActivityX</span>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="sidebar-nav">
+                <a href="#dashboard" class="nav-item active" data-route="dashboard">
+                    <svg class="nav-item-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect>
+                        <rect x="3" y="14" width="7" height="7"></rect>
+                    </svg>
+                    <span class="nav-item-text">Ana Sayfa</span>
+                </a>
+                <a href="#table" class="nav-item" data-route="table">
+                    <svg class="nav-item-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="3" y1="9" x2="21" y2="9"></line>
+                        <line x1="3" y1="15" x2="21" y2="15"></line>
+                        <line x1="9" y1="9" x2="9" y2="21"></line>
+                        <line x1="15" y1="9" x2="15" y2="21"></line>
+                    </svg>
+                    <span class="nav-item-text">Aktivite Tablosu</span>
+                </a>
+                <a href="#calisanlar" class="nav-item" data-route="calisanlar">
+                    <svg class="nav-item-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+                    </svg>
+                    <span class="nav-item-text">Çalışanlar</span>
+                </a>
+                <a href="#ekipler" class="nav-item" data-route="ekipler">
+                    <svg class="nav-item-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="9" cy="7" r="4"></circle>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                    <span class="nav-item-text">Ekipler</span>
+                </a>
+                <a href="#reports" class="nav-item" data-route="reports">
+                    <svg class="nav-item-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="20" x2="18" y2="10"></line>
+                        <line x1="12" y1="20" x2="12" y2="4"></line>
+                        <line x1="6" y1="20" x2="6" y2="14"></line>
+                    </svg>
+                    <span class="nav-item-text">Raporlar</span>
+                </a>
+            </nav>
+
+            <!-- Sidebar Footer -->
+            <div class="sidebar-footer">
+                <!-- User Profile -->
+                <div class="sidebar-user-profile" id="profile-btn">
+                    <div class="sidebar-user-avatar">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <circle cx="12" cy="10" r="3"></circle>
+                            <path d="M6.168 18.849A4 4 0 0 1 10 16h4a4 4 0 0 1 3.834 2.855"></path>
+                        </svg>
+                    </div>
+                    <div class="sidebar-user-info">
+                        <div class="sidebar-user-name" id="sidebar-user-name">Kullanıcı</div>
+                        <div class="sidebar-user-role" id="sidebar-user-role">Yönetici</div>
+                    </div>
+                </div>
+
+                <!-- Logout Button -->
+                <button class="sidebar-footer-btn" id="sidebar-logout-btn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                    <span class="sidebar-footer-text">Çıkış Yap</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Layout -->
+        <div class="main-layout">
     <div class="app-container">
         <!-- Header -->
         <header class="header">
             <div class="header-content">
                 <div class="header-left">
+                    <h2 class="page-title" id="page-title">Ana Sayfa</h2>
+                </div>
+                <div class="header-right">
                     <h1 class="app-title">
                         <img src="transparentlogo.png" alt="Logo" class="app-logo">
                     </h1>
-                    <div class="user-details">
-                        <div class="law-firm-name" id="header-law-firm">Hukuk Bürosu</div>
-                        <div class="user-name" id="header-user-name">Kullanıcı Adı</div>
-                    </div>
-                </div>
-                <div class="header-right">
-                    <div class="profile-menu-container">
-                        <button class="profile-icon-button" id="profile-menu-btn">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                                <circle cx="12" cy="7" r="4"></circle>
-                            </svg>
-                        </button>
-                        <div class="user-dropdown" id="user-dropdown">
-                            <button class="dropdown-item" id="logout-btn">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                                    <path d="M16 17l5-5-5-5"></path>
-                                    <path d="M21 12H9"></path>
-                                </svg>
-                                Çıkış Yap
-                            </button>
-                        </div>
-                    </div>
-                    <button class="update-data-button" id="update-data-btn">
-                        Verileri Güncelle
-                    </button>
                 </div>
             </div>
         </header>
 
-        <!-- Main Content -->
-        <main class="main-content">
-
-            <!-- Charts Section -->
-            <section class="charts-section">
-                <div class="chart-container">
-                    <div class="chart-header">
-                        <h3>Aktivite Genel Bakış</h3>
-                    </div>
-                    <canvas id="activity-chart"></canvas>
-                </div>
-                <div class="chart-container">
-                    <div class="chart-header">
-                        <h3>Uygulama Kullanım Dağılımı</h3>
-                    </div>
-                    <canvas id="apps-chart"></canvas>
-                </div>
-            </section>
-
-            <!-- Users Table -->
-            <section class="users-section">
-                <div class="section-header">
-                    <div class="table-controls">
-                        <div class="search-input-wrapper">
-                            <input type="text" id="search-input" placeholder="Kullanıcı ara..." class="search-input">
-                            <button type="button" id="clear-search" class="clear-search-btn" style="display: none;">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                                </svg>
-                            </button>
-                        </div>
-                        <select id="sort-select" class="sort-select">
-                            <option value="name-az">İsme Göre Sırala (A-Z)</option>
-                            <option value="name-za">İsme Göre Sırala (Z-A)</option>
-                            <option value="active-time-desc">En Yüksek Aktivite Süresine Göre Sırala</option>
-                            <option value="active-time-asc">En Düşük Aktivite Süresine Göre Sırala</option>
-                            <option value="last-activity-recent">En Yakın Son Aktivite Tarihine Göre Sırala</option>
-                            <option value="last-activity-oldest">En Uzak Son Aktivite Tarihine Göre Sırala</option>
-                        </select>
-                        <div class="time-period-selector">
-                            <button class="btn btn-secondary" data-period="daily">Bugün</button>
-                            <button class="btn btn-secondary active" data-period="weekly">Haftalık</button>
-                            <button class="btn btn-secondary" data-period="monthly">Aylık</button>
-                            <button class="btn btn-secondary" data-period="annual">Yıllık</button>
-                            <div class="custom-date-wrapper">
-                                <button class="btn btn-secondary" data-period="custom" id="custom-btn">Özel</button>
-                                <div class="custom-date-popup" id="custom-date-selector" style="display: none;">
-                                    <div class="popup-arrow"></div>
-                                    <div class="popup-content">
-                                        <div class="date-range-container">
-                                            <div class="date-row">
-                                                <label for="start-date-display" class="date-label">Başlangıç</label>
-                                                <div class="date-input-wrapper" style="position: relative; width: 160px;">
-                                                    <div class="date-input-custom" id="start-date-display">
-                                                        <span class="date-text">Tarih seçin</span>
-                                                        <svg class="calendar-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                                                            <line x1="16" y1="2" x2="16" y2="6"></line>
-                                                            <line x1="8" y1="2" x2="8" y2="6"></line>
-                                                            <line x1="3" y1="10" x2="21" y2="10"></line>
-                                                        </svg>
-                                                    </div>
-                                                    <div class="calendar-wrapper" id="start-calendar-wrapper">
-                                                        <div class="custom-calendar" id="start-calendar"></div>
-                                                    </div>
-                                                </div>
-                                                <button class="btn btn-secondary btn-sm" id="cancel-date-range">İptal Et</button>
-                                            </div>
-                                            <div class="date-row">
-                                                <label for="end-date-display" class="date-label">Bitiş</label>
-                                                <div class="date-input-wrapper" style="position: relative; width: 160px;">
-                                                    <div class="date-input-custom" id="end-date-display">
-                                                        <span class="date-text">Tarih seçin</span>
-                                                        <svg class="calendar-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                                                            <line x1="16" y1="2" x2="16" y2="6"></line>
-                                                            <line x1="8" y1="2" x2="8" y2="6"></line>
-                                                            <line x1="3" y1="10" x2="21" y2="10"></line>
-                                                        </svg>
-                                                    </div>
-                                                    <div class="calendar-wrapper" id="end-calendar-wrapper">
-                                                        <div class="custom-calendar" id="end-calendar"></div>
-                                                    </div>
-                                                </div>
-                                                <button class="btn btn-primary btn-sm" id="apply-date-range">Uygula</button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <button class="btn btn-primary" id="apply-filters-btn">
-                            Temizle
-                        </button>
-                        <button class="btn btn-secondary" id="export-btn">CSV İndir</button>
-                    </div>
-                </div>
-                <div class="table-container">
-                    <table class="users-table">
-                        <thead>
-                            <tr>
-                                <th class="row-number-header">#</th>
-                                <th>Kullanıcı Adı</th>
-                                <th>Aktif Süre</th>
-                                <th>En Çok Kullanılan Uygulamalar</th>
-                                <th>En Çok Ziyaret Edilen Web Siteleri</th>
-                                <th>Son Aktivite</th>
-                                <th>İşlemler</th>
-                            </tr>
-                        </thead>
-                        <tbody id="users-table-body">
-                            <!-- Users will be populated by JavaScript -->
-                        </tbody>
-                    </table>
-                </div>
-
-            </section>
-
+        <!-- Main Content - Dynamic Page Container -->
+        <main class="page-content" id="page-content">
+            <!-- Pages will be loaded here dynamically -->
         </main>
 
         <!-- Logout Confirmation Modal -->
@@ -180,6 +134,53 @@
                         <button class="btn btn-secondary" id="logout-cancel">İptal Et</button>
                         <button class="btn btn-primary" id="logout-confirm">Çıkış Yap</button>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Refresh Data Confirmation Modal -->
+        <div class="modal" id="refresh-modal">
+            <div class="modal-content logout-modal-content">
+                <div class="modal-header">
+                    <h3>Verileri Güncelle</h3>
+                </div>
+                <div class="modal-body">
+                    <p>Veritabanından güncel verileri çekmek istediğinize emin misiniz?</p>
+                    <div class="modal-actions">
+                        <button class="btn btn-secondary" id="refresh-cancel">İptal Et</button>
+                        <button class="btn btn-primary" id="refresh-confirm">Güncelle</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Username Modal -->
+        <div class="modal" id="edit-username-modal">
+            <div class="modal-content edit-username-modal-content">
+                <div class="modal-header">
+                    <h3>Kullanıcı Adını Düzenle</h3>
+                    <button class="modal-close" onclick="closeEditUsernameModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p class="edit-modal-info">
+                        <strong>Orijinal PC Adı:</strong> <span id="edit-modal-pc-name"></span>
+                    </p>
+                    <form id="edit-username-form" onsubmit="saveUsername(event)">
+                        <div class="form-group">
+                            <label for="custom-username-input">Özel Görünen Ad:</label>
+                            <input
+                                type="text"
+                                id="custom-username-input"
+                                placeholder="Örn: Ahmet Yılmaz"
+                                required
+                                maxlength="50"
+                            >
+                        </div>
+                        <div class="modal-actions">
+                            <button type="button" class="btn btn-secondary" onclick="closeEditUsernameModal()">İptal</button>
+                            <button type="submit" class="btn btn-primary">Kaydet</button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
@@ -302,7 +303,19 @@
             </div>
         </div>
     </div>
+        </div>
+    </div>
 
+    <script src="js/browser-supabase.js"></script>
+    <script src="js/userNameMapping.js"></script>
+    <script src="js/sidebar.js"></script>
+    <script src="js/router.js"></script>
+    <script src="js/pages/profile.js"></script>
     <script src="app.js"></script>
+    <script src="js/pages/reports.js"></script>
+    <script src="js/pages/reports-calendar.js"></script>
+    <script src="js/logout-modal.js"></script>
+    <!-- Debug tool for localStorage issues -->
+    <script src="debug-localstorage.js"></script>
 </body>
 </html> 
