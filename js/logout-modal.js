@@ -127,8 +127,25 @@ class LogoutModalHandler {
                 }
             }
 
-            // Clear storage
-            localStorage.clear();
+            // IMPORTANT: Only clear auth-related data, preserve business data
+            // DO NOT use localStorage.clear() as it will delete all user/team data
+            const authKeysToRemove = [
+                'supabase.auth.token',
+                'sb-auth-token',
+                'user',
+                'currentUser',
+                'authToken',
+                'session',
+                'sidebarCollapsed',
+                'reportHistory'
+            ];
+
+            // Remove only auth-related keys
+            authKeysToRemove.forEach(key => {
+                localStorage.removeItem(key);
+            });
+
+            // Clear session storage (temporary session data only)
             sessionStorage.clear();
 
             // Small delay to ensure everything is processed
@@ -137,8 +154,18 @@ class LogoutModalHandler {
             }, 100);
 
         } catch (error) {
-            // Still navigate on error
-            localStorage.clear();
+            // Still navigate on error, but preserve business data
+            const authKeysToRemove = [
+                'supabase.auth.token',
+                'sb-auth-token',
+                'user',
+                'currentUser',
+                'authToken',
+                'session'
+            ];
+            authKeysToRemove.forEach(key => {
+                localStorage.removeItem(key);
+            });
             sessionStorage.clear();
             window.location.href = 'auth.html';
         }

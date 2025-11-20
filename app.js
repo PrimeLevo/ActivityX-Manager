@@ -1542,16 +1542,39 @@ function setupEventListeners() {
                     } else {
                     }
 
-                    // Clear any local storage data
-                    localStorage.clear();
+                    // IMPORTANT: Only clear auth-related data, preserve business data
+                    // DO NOT use localStorage.clear() as it will delete all user/team data
+                    const authKeysToRemove = [
+                        'supabase.auth.token',
+                        'sb-auth-token',
+                        'user',
+                        'currentUser',
+                        'authToken',
+                        'session',
+                        'sidebarCollapsed',
+                        'reportHistory'
+                    ];
+                    authKeysToRemove.forEach(key => {
+                        localStorage.removeItem(key);
+                    });
                     sessionStorage.clear();
 
                     // Navigate to auth page after successful logout
                     window.location.href = 'auth.html';
                 } catch (error) {
                     console.error('[DEBUG] Logout error:', error);
-                    // Still navigate to auth page even if logout fails
-                    localStorage.clear();
+                    // Still navigate to auth page even if logout fails, but preserve business data
+                    const authKeysToRemove = [
+                        'supabase.auth.token',
+                        'sb-auth-token',
+                        'user',
+                        'currentUser',
+                        'authToken',
+                        'session'
+                    ];
+                    authKeysToRemove.forEach(key => {
+                        localStorage.removeItem(key);
+                    });
                     sessionStorage.clear();
                     window.location.href = 'auth.html';
                 }
