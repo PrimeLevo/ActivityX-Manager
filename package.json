@@ -67,11 +67,7 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
     },
-    "publish": {
-      "provider": "github",
-      "owner": "mleventw",
-      "repo": "ActivityX-Dashboard"
-    }
+    "publish": null
   },
   "keywords": [
     "activity",
