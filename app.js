@@ -264,25 +264,52 @@ class TurkishCalendar {
                 classes.push('selected');
             }
 
-            // Check if in range
-            if (this.options.rangeStart && this.options.rangeEnd) {
-                if (this.options.type === 'range-start' && this.isSameDay(date, this.options.rangeStart)) {
-                    classes.push('range-start');
-                } else if (this.options.type === 'range-end' && this.isSameDay(date, this.options.rangeEnd)) {
-                    classes.push('range-end');
-                } else if (date > this.options.rangeStart && date < this.options.rangeEnd) {
-                    classes.push('in-range');
+            // Check if in range - show both range-start and range-end in ALL calendars
+            const rangeStart = this.options.rangeStart;
+            const rangeEnd = this.options.rangeEnd;
+
+            if (rangeStart && rangeEnd) {
+                // Normalize dates for comparison (strip time)
+                const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                const startOnly = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate());
+                const endOnly = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth(), rangeEnd.getDate());
+
+                // Only show range if end >= start (valid range)
+                if (endOnly >= startOnly) {
+                    if (this.isSameDay(date, rangeStart)) {
+                        classes.push('range-start');
+                    }
+                    if (this.isSameDay(date, rangeEnd)) {
+                        classes.push('range-end');
+                    }
+                    if (dateOnly > startOnly && dateOnly < endOnly) {
+                        classes.push('in-range');
+                    }
                 }
+            } else if (rangeStart && this.isSameDay(date, rangeStart)) {
+                // Show range-start even when end is not yet selected
+                classes.push('range-start');
+            } else if (rangeEnd && this.isSameDay(date, rangeEnd)) {
+                // Show range-end even when start is not yet selected
+                classes.push('range-end');
             }
 
-            // Check min/max dates
-            if (this.options.minDate && date < this.options.minDate) {
-                classes.push('disabled');
-                disabled = true;
+            // Check min/max dates (compare date-only, ignoring time)
+            if (this.options.minDate) {
+                const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                const minDateOnly = new Date(this.options.minDate.getFullYear(), this.options.minDate.getMonth(), this.options.minDate.getDate());
+                if (dateOnly < minDateOnly) {
+                    classes.push('disabled');
+                    disabled = true;
+                }
             }
-            if (this.options.maxDate && date > this.options.maxDate) {
-                classes.push('disabled');
-                disabled = true;
+            if (this.options.maxDate) {
+                const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                const maxDateOnly = new Date(this.options.maxDate.getFullYear(), this.options.maxDate.getMonth(), this.options.maxDate.getDate());
+                if (dateOnly > maxDateOnly) {
+                    classes.push('disabled');
+                    disabled = true;
+                }
             }
 
             html += `<div class="${classes.join(' ')}" data-date="${dateStr}" ${disabled ? 'data-disabled="true"' : ''}>${day}</div>`;
@@ -368,6 +395,25 @@ class TurkishCalendar {
     setRangeEnd(date) {
         this.options.rangeEnd = date;
         this.render();
+    }
+
+    setMinDate(date) {
+        this.options.minDate = date;
+        this.render();
+    }
+
+    setMaxDate(date) {
+        this.options.maxDate = date;
+        this.render();
+    }
+
+    // Update range without re-rendering (for batch updates)
+    updateRange(start, end, shouldRender = true) {
+        this.options.rangeStart = start;
+        this.options.rangeEnd = end;
+        if (shouldRender) {
+            this.render();
+        }
     }
 
     isSameDay(date1, date2) {
@@ -858,6 +904,18 @@ function hideDashboardCustomDatePopup() {
     }
 }
 
+// Click outside to close dashboard custom date popup
+document.addEventListener('click', function(event) {
+    const popup = document.getElementById('dashboard-custom-date-selector');
+    const wrapper = document.querySelector('.dashboard-controls .custom-date-wrapper');
+
+    if (popup && popup.style.display === 'block') {
+        if (wrapper && !wrapper.contains(event.target)) {
+            hideDashboardCustomDatePopup();
+        }
+    }
+});
+
 function applyDashboardDateRange() {
     if (!selectedStartDate || !selectedEndDate) {
         alert('Lütfen başlangıç ve bitiş tarihlerini seçin');
@@ -892,7 +950,7 @@ function initializeDashboardCalendars() {
     dashboardStartCalendar = new TurkishCalendar('dashboard-start-calendar', {
         type: 'range-start',
         minDate: oneYearAgo,
-        maxDate: today,
+        maxDate: selectedEndDate || today, // Can't select start after end
         rangeStart: customStartDate,
         rangeEnd: customEndDate,
         onSelect: (date) => {
@@ -901,20 +959,13 @@ function initializeDashboardCalendars() {
             const dateText = displayElement.querySelector('.date-text');
             dateText.textContent = dashboardStartCalendar.formatDateTurkish(date);
 
-            // Update both calendars to show range
-            if (selectedEndDate && date > selectedEndDate) {
-                selectedEndDate = date;
-                const endDisplayElement = document.getElementById('dashboard-end-date-display');
-                const endDateText = endDisplayElement.querySelector('.date-text');
-                endDateText.textContent = dashboardEndCalendar.formatDateTurkish(date);
-            }
-
+            // Update end calendar - set minDate to prevent selecting end before start
             if (dashboardEndCalendar) {
-                dashboardEndCalendar.setRangeStart(date);
-                dashboardEndCalendar.setRangeEnd(selectedEndDate);
+                dashboardEndCalendar.setMinDate(date);
+                dashboardEndCalendar.updateRange(date, selectedEndDate, true);
             }
-            dashboardStartCalendar.setRangeStart(date);
-            dashboardStartCalendar.setRangeEnd(selectedEndDate);
+            // Update this calendar's range
+            dashboardStartCalendar.updateRange(date, selectedEndDate, true);
 
             // Close calendar
             document.getElementById('dashboard-start-calendar-wrapper').style.display = 'none';
@@ -924,7 +975,7 @@ function initializeDashboardCalendars() {
     // Initialize end date calendar
     dashboardEndCalendar = new TurkishCalendar('dashboard-end-calendar', {
         type: 'range-end',
-        minDate: oneYearAgo,
+        minDate: selectedStartDate || oneYearAgo, // Can't select end before start
         maxDate: today,
         rangeStart: customStartDate,
         rangeEnd: customEndDate,
@@ -934,20 +985,13 @@ function initializeDashboardCalendars() {
             const dateText = displayElement.querySelector('.date-text');
             dateText.textContent = dashboardEndCalendar.formatDateTurkish(date);
 
-            // Update both calendars to show range
-            if (selectedStartDate && date < selectedStartDate) {
-                selectedStartDate = date;
-                const startDisplayElement = document.getElementById('dashboard-start-date-display');
-                const startDateText = startDisplayElement.querySelector('.date-text');
-                startDateText.textContent = dashboardStartCalendar.formatDateTurkish(date);
-            }
-
+            // Update start calendar - set maxDate to prevent selecting start after end
             if (dashboardStartCalendar) {
-                dashboardStartCalendar.setRangeStart(selectedStartDate);
-                dashboardStartCalendar.setRangeEnd(date);
+                dashboardStartCalendar.setMaxDate(date);
+                dashboardStartCalendar.updateRange(selectedStartDate, date, true);
             }
-            dashboardEndCalendar.setRangeStart(selectedStartDate);
-            dashboardEndCalendar.setRangeEnd(date);
+            // Update this calendar's range
+            dashboardEndCalendar.updateRange(selectedStartDate, date, true);
 
             // Close calendar
             document.getElementById('dashboard-end-calendar-wrapper').style.display = 'none';
@@ -966,6 +1010,12 @@ function initializeDashboardCalendars() {
             if (wrapper.style.display === 'block') {
                 wrapper.style.display = 'none';
             } else {
+                // Update calendar constraints before showing
+                if (dashboardStartCalendar) {
+                    const today = new Date();
+                    dashboardStartCalendar.options.maxDate = selectedEndDate || today;
+                    dashboardStartCalendar.updateRange(selectedStartDate, selectedEndDate, true);
+                }
                 wrapper.style.display = 'block';
                 if (endWrapper) endWrapper.style.display = 'none';
             }
@@ -980,6 +1030,12 @@ function initializeDashboardCalendars() {
             if (wrapper.style.display === 'block') {
                 wrapper.style.display = 'none';
             } else {
+                // Update calendar constraints before showing
+                if (dashboardEndCalendar) {
+                    const oneYearAgo = new Date(new Date().getTime() - (365 * 24 * 60 * 60 * 1000));
+                    dashboardEndCalendar.options.minDate = selectedStartDate || oneYearAgo;
+                    dashboardEndCalendar.updateRange(selectedStartDate, selectedEndDate, true);
+                }
                 wrapper.style.display = 'block';
                 if (startWrapper) startWrapper.style.display = 'none';
             }
@@ -1169,6 +1225,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Setup event listeners for buttons and controls
     setupEventListeners();
+
+    // Setup timeline navigation event listeners
+    setupTimelineNavigation();
 
     // Render dashboard header (user name, law firm name) - this is global across all pages
     renderDashboard();
@@ -1415,8 +1474,8 @@ function setupTablePage() {
         });
     }
 
-    // Modal close
-    const modalClose = document.querySelector('.modal-close');
+    // Modal close - specifically target the close button inside user-modal
+    const modalClose = document.querySelector('#user-modal .modal-close');
     if (modalClose) {
         modalClose.addEventListener('click', closeModal);
     }
@@ -1425,6 +1484,40 @@ function setupTablePage() {
     if (userModal) {
         userModal.addEventListener('click', function(e) {
             if (e.target === this) closeModal();
+        });
+    }
+
+    // Event delegation for actions menu in the table
+    const tableBody = document.getElementById('users-table-body');
+    if (tableBody) {
+        tableBody.addEventListener('click', (e) => {
+            const viewBtn = e.target.closest('.table-view-btn');
+            const editBtn = e.target.closest('.table-edit-btn');
+            const deleteBtn = e.target.closest('.table-delete-btn');
+            const actionsBtn = e.target.closest('.actions-menu-btn');
+            const actionsDropdown = e.target.closest('.actions-dropdown');
+
+            if (viewBtn) {
+                e.stopPropagation();
+                const userId = parseInt(viewBtn.getAttribute('data-user-id'));
+                closeActiveDropdown();
+                openUserModal(userId);
+            } else if (editBtn) {
+                e.stopPropagation();
+                const pcName = editBtn.getAttribute('data-user-id');
+                const displayName = editBtn.getAttribute('data-display-name');
+                closeActiveDropdown();
+                openEditUsernameModal(pcName, displayName);
+            } else if (deleteBtn) {
+                e.stopPropagation();
+                const pcName = deleteBtn.getAttribute('data-user-id');
+                const displayName = deleteBtn.getAttribute('data-display-name');
+                closeActiveDropdown();
+                showDeleteUserModal(pcName, displayName);
+            } else if (actionsBtn || actionsDropdown) {
+                // Don't trigger row click when clicking actions menu
+                return;
+            }
         });
     }
 }
@@ -1607,9 +1700,9 @@ function setupEventListeners() {
         filteredUsers.sort((a, b) => {
             switch(sortBy) {
                 case 'name-az':
-                    return a.name.localeCompare(b.name, 'tr', { sensitivity: 'base' });
+                    return getDisplayName(a.userId).localeCompare(getDisplayName(b.userId), 'tr', { sensitivity: 'base' });
                 case 'name-za':
-                    return b.name.localeCompare(a.name, 'tr', { sensitivity: 'base' });
+                    return getDisplayName(b.userId).localeCompare(getDisplayName(a.userId), 'tr', { sensitivity: 'base' });
                 case 'active-time-desc':
                     return getActiveTimeForPeriod(b) - getActiveTimeForPeriod(a);
                 case 'active-time-asc':
@@ -1784,6 +1877,56 @@ function setupEventListeners() {
             if (e.target === this) closeModal();
         });
     }
+
+    // Delete user modal handlers (global since modal is in index.html)
+    initDeleteUserModal();
+}
+
+// Flag to prevent duplicate event listener registration
+let deleteModalInitialized = false;
+
+function initDeleteUserModal() {
+    if (deleteModalInitialized) return;
+
+    const deleteModal = document.getElementById('delete-user-modal');
+    const deleteConfirmBtn = document.getElementById('delete-user-confirm');
+    const deleteCancelBtn = document.getElementById('delete-user-cancel');
+    const deleteCloseBtn = document.getElementById('delete-user-close');
+
+    if (deleteConfirmBtn) {
+        deleteConfirmBtn.addEventListener('click', () => {
+            if (userToDelete) {
+                performUserDeletion(userToDelete);
+                deleteModal.style.display = 'none';
+                userToDelete = null;
+            }
+        });
+    }
+
+    if (deleteCancelBtn) {
+        deleteCancelBtn.addEventListener('click', () => {
+            deleteModal.style.display = 'none';
+            userToDelete = null;
+        });
+    }
+
+    if (deleteCloseBtn) {
+        deleteCloseBtn.addEventListener('click', () => {
+            deleteModal.style.display = 'none';
+            userToDelete = null;
+        });
+    }
+
+    if (deleteModal) {
+        deleteModal.addEventListener('click', (e) => {
+            if (e.target === deleteModal) {
+                deleteModal.style.display = 'none';
+                userToDelete = null;
+            }
+        });
+    }
+
+    deleteModalInitialized = true;
 }
 
 // Custom date popup control functions
@@ -1798,7 +1941,7 @@ function initializeCustomCalendars() {
     startCalendar = new TurkishCalendar('start-calendar', {
         type: 'range-start',
         minDate: oneYearAgo,
-        maxDate: today,
+        maxDate: selectedEndDate || today, // Can't select start after end
         selectedDate: customStartDate || new Date(today.getTime() - (30 * 24 * 60 * 60 * 1000)),
         rangeStart: customStartDate,
         rangeEnd: customEndDate,
@@ -1808,21 +1951,13 @@ function initializeCustomCalendars() {
             const dateText = displayElement.querySelector('.date-text');
             dateText.textContent = startCalendar.formatDateTurkish(date);
 
-            // Update both calendars to show range
-            if (selectedEndDate && date > selectedEndDate) {
-                // If start date is after end date, swap them
-                selectedEndDate = date;
-                const endDisplayElement = document.getElementById('end-date-display');
-                const endDateText = endDisplayElement.querySelector('.date-text');
-                endDateText.textContent = endCalendar.formatDateTurkish(date);
-            }
-
+            // Update end calendar - set minDate to prevent selecting end before start
             if (endCalendar) {
-                endCalendar.setRangeStart(date);
-                endCalendar.setRangeEnd(selectedEndDate);
+                endCalendar.setMinDate(date);
+                endCalendar.updateRange(date, selectedEndDate, true);
             }
-            startCalendar.setRangeStart(date);
-            startCalendar.setRangeEnd(selectedEndDate);
+            // Update this calendar's range
+            startCalendar.updateRange(date, selectedEndDate, true);
 
             // Close calendar
             document.getElementById('start-calendar-wrapper').classList.remove('show');
@@ -1832,7 +1967,7 @@ function initializeCustomCalendars() {
     // Initialize end date calendar
     endCalendar = new TurkishCalendar('end-calendar', {
         type: 'range-end',
-        minDate: oneYearAgo,
+        minDate: selectedStartDate || oneYearAgo, // Can't select end before start
         maxDate: today,
         selectedDate: customEndDate || today,
         rangeStart: customStartDate,
@@ -1843,21 +1978,13 @@ function initializeCustomCalendars() {
             const dateText = displayElement.querySelector('.date-text');
             dateText.textContent = endCalendar.formatDateTurkish(date);
 
-            // Update both calendars to show range
-            if (selectedStartDate && date < selectedStartDate) {
-                // If end date is before start date, swap them
-                selectedStartDate = date;
-                const startDisplayElement = document.getElementById('start-date-display');
-                const startDateText = startDisplayElement.querySelector('.date-text');
-                startDateText.textContent = startCalendar.formatDateTurkish(date);
-            }
-
+            // Update start calendar - set maxDate to prevent selecting start after end
             if (startCalendar) {
-                startCalendar.setRangeStart(selectedStartDate);
-                startCalendar.setRangeEnd(date);
+                startCalendar.setMaxDate(date);
+                startCalendar.updateRange(selectedStartDate, date, true);
             }
-            endCalendar.setRangeStart(selectedStartDate);
-            endCalendar.setRangeEnd(date);
+            // Update this calendar's range
+            endCalendar.updateRange(selectedStartDate, date, true);
 
             // Close calendar
             document.getElementById('end-calendar-wrapper').classList.remove('show');
@@ -1885,6 +2012,15 @@ function initializeCustomCalendars() {
         const wrapper = document.getElementById('start-calendar-wrapper');
         const endWrapper = document.getElementById('end-calendar-wrapper');
         endWrapper.classList.remove('show');
+
+        if (!wrapper.classList.contains('show')) {
+            // Update calendar constraints before showing
+            if (startCalendar) {
+                const todayDate = new Date();
+                startCalendar.options.maxDate = selectedEndDate || todayDate;
+                startCalendar.updateRange(selectedStartDate, selectedEndDate, true);
+            }
+        }
         wrapper.classList.toggle('show');
     });
 
@@ -1893,6 +2029,15 @@ function initializeCustomCalendars() {
         const wrapper = document.getElementById('end-calendar-wrapper');
         const startWrapper = document.getElementById('start-calendar-wrapper');
         startWrapper.classList.remove('show');
+
+        if (!wrapper.classList.contains('show')) {
+            // Update calendar constraints before showing
+            if (endCalendar) {
+                const oneYearAgoDate = new Date(new Date().getTime() - (365 * 24 * 60 * 60 * 1000));
+                endCalendar.options.minDate = selectedStartDate || oneYearAgoDate;
+                endCalendar.updateRange(selectedStartDate, selectedEndDate, true);
+            }
+        }
         wrapper.classList.toggle('show');
     });
 
@@ -2777,9 +2922,9 @@ function sortUsers(sortBy) {
         switch(sortBy) {
             case 'name-az':
             case 'name':
-                return a.name.localeCompare(b.name, 'tr', { sensitivity: 'base' });
+                return getDisplayName(a.userId).localeCompare(getDisplayName(b.userId), 'tr', { sensitivity: 'base' });
             case 'name-za':
-                return b.name.localeCompare(a.name, 'tr', { sensitivity: 'base' });
+                return getDisplayName(b.userId).localeCompare(getDisplayName(a.userId), 'tr', { sensitivity: 'base' });
             case 'active-time-desc':
             case 'active-time':
                 return getActiveTimeForPeriod(b) - getActiveTimeForPeriod(a);
@@ -2979,7 +3124,7 @@ function updateUserTable() {
 
         const displayName = getDisplayName(user.userId);
         return `
-        <tr class="clickable-row" onclick="openUserModal(${user.id})">
+        <tr class="clickable-row" onclick="handleTableRowClick(event, ${user.id})">
             <td class="row-number">${index + 1}</td>
             <td>
                 <div class="user-name ${displayName.length > 25 ? 'truncated' : ''}" onclick="event.stopPropagation(); showFullUserName('${displayName.replace(/'/g, "\\'")}')" title="${displayName.length > 25 ? 'Click to see full name' : ''}">${displayName}</div>
@@ -3037,7 +3182,31 @@ function updateUserTable() {
                 </div>
             </td>
             <td>
-                <button class="view-details-btn" onclick="event.stopPropagation(); openUserModal(${user.id})">Detayları Görüntüle</button>
+                <div class="action-cell-wrapper">
+                    <button class="actions-menu-btn" onclick="event.stopPropagation(); toggleActionsMenu('table-${index}', '${user.userId.replace(/'/g, "\\'")}', '${displayName.replace(/'/g, "\\'")}')">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                            <circle cx="12" cy="5" r="2"></circle>
+                            <circle cx="12" cy="12" r="2"></circle>
+                            <circle cx="12" cy="19" r="2"></circle>
+                        </svg>
+                    </button>
+                    <div class="actions-dropdown" id="actions-dropdown-table-${index}">
+                        <button class="actions-dropdown-item view table-view-btn" data-user-id="${user.id}">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                            Detayları Görüntüle
+                        </button>
+                        <button class="actions-dropdown-item edit table-edit-btn" data-user-id="${escapeHtml(user.userId)}" data-display-name="${escapeHtml(displayName)}">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                            </svg>
+                            Düzenle
+                        </button>
+                    </div>
+                </div>
             </td>
         </tr>`;
     }).join('');
@@ -3526,7 +3695,7 @@ function createDailyTrendChart() {
                     max: yAxisMax,
                     ticks: {
                         callback: function(value) {
-                            return (value / 60).toFixed(1) + 'h';
+                            return (value / 60).toFixed(1) + 's';
                         }
                     },
                     grid: {
@@ -3894,6 +4063,19 @@ function processUserWebsites(user) {
 // Global variable to store current modal user data for CSV export
 let currentModalUser = null;
 
+// Timeline date navigation state
+let timelineDates = [];           // Array of date strings in the current range
+let timelineCurrentIndex = 0;     // Current index in the dates array
+
+// Handle table row click - check if click came from actions dropdown
+function handleTableRowClick(event, userId) {
+    // Check if the click originated from within the actions dropdown or actions menu button
+    if (event.target.closest('.actions-dropdown') || event.target.closest('.actions-menu-btn')) {
+        return; // Don't open modal if clicking on actions
+    }
+    openUserModal(userId);
+}
+
 function openUserModal(userId) {
     const user = users.find(u => u.id === userId);
     if (!user) return;
@@ -3904,9 +4086,41 @@ function openUserModal(userId) {
     // Store for CSV export
     currentModalUser = filteredUser;
 
+    // DEBUG: Log time calculation details
+    console.log('=== DEBUG: User Modal Time Analysis ===');
+    console.log('User:', filteredUser.name);
+    console.log('Batches count:', filteredUser.batchIds?.length || 0);
 
-    // Populate basic user info
-    document.getElementById('modal-user-name').textContent = filteredUser.name;
+    // Calculate sum of all at values
+    let totalAtFromBatches = 0;
+    let totalTimelineMinutes = 0;
+    if (filteredUser.batchIds) {
+        filteredUser.batchIds.forEach((batch, i) => {
+            const at = batch.at || 0;
+            totalAtFromBatches += at;
+
+            // Calculate timeline minutes this batch would fill
+            const startMinutes = parseTimeToMinutes(batch.s);
+            const endMinutes = parseTimeToMinutes(batch.e);
+            if (startMinutes !== null && endMinutes !== null) {
+                const batchMinutes = endMinutes - startMinutes;
+                const activeRatio = (batch.at || 0) / ((batch.at || 0) + (batch.it || 0) || 1);
+                const activeMinutes = batchMinutes * activeRatio;
+                totalTimelineMinutes += activeMinutes;
+
+                if (i < 5) { // Log first 5 batches
+                    console.log(`Batch ${i}: ${batch.s}-${batch.e}, at=${at}s, it=${batch.it}s, ratio=${activeRatio.toFixed(2)}, activeMin=${activeMinutes.toFixed(1)}`);
+                }
+            }
+        });
+    }
+    console.log('Sum of all batch.at values:', totalAtFromBatches, 'seconds =', (totalAtFromBatches/3600).toFixed(2), 'hours');
+    console.log('Timeline would show:', totalTimelineMinutes.toFixed(1), 'minutes =', (totalTimelineMinutes/60).toFixed(2), 'hours of blue');
+    console.log('ActiveTime from filteredUser:', filteredUser.activeTime);
+    console.log('=== END DEBUG ===');
+
+    // Populate basic user info - use edited display name if available
+    document.getElementById('modal-user-name').textContent = getDisplayName(filteredUser.userId);
     document.getElementById('modal-active-time').textContent =
         `${filteredUser.activeTime.hours}s ${filteredUser.activeTime.minutes}d ${Math.floor(filteredUser.activeTime.seconds)}sn`;
     // Inactive time removed from UI
@@ -3935,13 +4149,23 @@ function openUserModal(userId) {
 
     createModalCharts(filteredUser);
 
-    // Show timeline only if day count is 1
-    if (numberOfDays === 1) {
-        renderActivityTimeline(filteredUser);
-        document.getElementById('modal-timeline-section').style.display = 'block';
+    // Always show timeline - with date navigation for multi-day ranges
+    document.getElementById('modal-timeline-section').style.display = 'block';
+
+    // Initialize timeline dates array based on current period
+    initializeTimelineDates();
+
+    // Show/hide date selector based on number of days
+    const dateSelector = document.getElementById('timeline-date-selector');
+    if (numberOfDays > 1) {
+        dateSelector.style.display = 'flex';
+        updateTimelineDateDisplay();
     } else {
-        document.getElementById('modal-timeline-section').style.display = 'none';
+        dateSelector.style.display = 'none';
     }
+
+    // Render timeline for the current date
+    renderActivityTimeline(filteredUser);
 
     // Initialize custom tooltips
     initializeCustomTooltips();
@@ -4490,11 +4714,6 @@ async function updateDataFromSupabase() {
                 updateBtn.innerHTML = 'Veriler Güncelleniyor';
             }
             await deleteAllDataFromSupabase();
-            
-            // Step 7: Success
-            if (updateBtn) {
-                updateBtn.innerHTML = 'Veriler Güncelleniyor';
-            }
 
             // Hide loading popup and show success message
             hideLoadingPopup();
@@ -5777,6 +5996,11 @@ function renderActivityTimeline(user) {
  * Returns date string in YYYY-MM-DD format
  */
 function getTargetDateForTimeline() {
+    // If we have timeline dates array and a valid index, use that
+    if (timelineDates.length > 0 && timelineCurrentIndex >= 0 && timelineCurrentIndex < timelineDates.length) {
+        return timelineDates[timelineCurrentIndex];
+    }
+
     const today = new Date();
 
     if (currentPeriod === 'daily') {
@@ -5789,6 +6013,226 @@ function getTargetDateForTimeline() {
 
     // Fallback to today
     return formatDateString(today);
+}
+
+/**
+ * Initialize the timeline dates array based on current period
+ * Sets timelineDates to an array of date strings and timelineCurrentIndex to the last date
+ */
+function initializeTimelineDates() {
+    const today = new Date();
+    timelineDates = [];
+
+    let startDate, endDate;
+
+    if (currentPeriod === 'custom' && customStartDate && customEndDate) {
+        startDate = new Date(customStartDate);
+        endDate = new Date(customEndDate);
+    } else if (currentPeriod === 'daily') {
+        startDate = today;
+        endDate = today;
+    } else if (currentPeriod === 'weekly') {
+        const dayOfWeek = today.getDay();
+        const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        startDate = new Date(today);
+        startDate.setDate(today.getDate() - mondayOffset);
+        endDate = today;
+    } else if (currentPeriod === 'monthly') {
+        startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+        endDate = today;
+    } else if (currentPeriod === 'annual') {
+        startDate = new Date(today.getFullYear(), 0, 1);
+        endDate = today;
+    } else {
+        startDate = today;
+        endDate = today;
+    }
+
+    // Generate all dates in range
+    const current = new Date(startDate);
+    while (current <= endDate) {
+        timelineDates.push(formatDateString(new Date(current)));
+        current.setDate(current.getDate() + 1);
+    }
+
+    // Start at the last date (most recent)
+    timelineCurrentIndex = timelineDates.length - 1;
+}
+
+/**
+ * Format a date string to Turkish display format
+ */
+function formatDateTurkishLong(dateStr) {
+    const dateObj = new Date(dateStr + 'T00:00:00');
+    const turkishMonths = [
+        'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
+        'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'
+    ];
+    const turkishDays = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+    return {
+        full: `${dateObj.getDate()} ${turkishMonths[dateObj.getMonth()]} ${dateObj.getFullYear()}`,
+        short: `${dateObj.getDate()} ${turkishMonths[dateObj.getMonth()]}`,
+        dayName: turkishDays[dateObj.getDay()]
+    };
+}
+
+/**
+ * Update the timeline date display UI
+ */
+function updateTimelineDateDisplay() {
+    if (timelineDates.length === 0) return;
+
+    const currentDate = timelineDates[timelineCurrentIndex];
+    const formatted = formatDateTurkishLong(currentDate);
+
+    // Update display
+    document.getElementById('timeline-current-date').textContent = formatted.full;
+
+    // Enable/disable navigation buttons
+    const prevBtn = document.getElementById('timeline-prev-day');
+    const nextBtn = document.getElementById('timeline-next-day');
+
+    if (prevBtn && nextBtn) {
+        prevBtn.disabled = timelineCurrentIndex <= 0;
+        nextBtn.disabled = timelineCurrentIndex >= timelineDates.length - 1;
+    }
+}
+
+/**
+ * Populate and update the timeline date dropdown
+ */
+function updateTimelineDateDropdown() {
+    const dropdownList = document.getElementById('timeline-date-dropdown-list');
+    if (!dropdownList) return;
+
+    // Build dropdown items
+    let html = '';
+    timelineDates.forEach((dateStr, index) => {
+        const formatted = formatDateTurkishLong(dateStr);
+        const isSelected = index === timelineCurrentIndex;
+        html += `
+            <div class="timeline-date-item ${isSelected ? 'selected' : ''}" data-index="${index}">
+                <span class="date-day-name">${formatted.dayName}</span>
+                <span class="date-full">${formatted.short}</span>
+            </div>
+        `;
+    });
+
+    dropdownList.innerHTML = html;
+
+    // Scroll to selected item
+    const selectedItem = dropdownList.querySelector('.timeline-date-item.selected');
+    if (selectedItem) {
+        selectedItem.scrollIntoView({ block: 'center', behavior: 'instant' });
+    }
+}
+
+/**
+ * Toggle timeline date dropdown visibility
+ */
+function toggleTimelineDateDropdown() {
+    const dropdown = document.getElementById('timeline-date-dropdown');
+    const btn = document.getElementById('timeline-date-btn');
+
+    if (dropdown.classList.contains('show')) {
+        dropdown.classList.remove('show');
+        btn.classList.remove('active');
+    } else {
+        // Position dropdown below the button using fixed positioning
+        const rect = btn.getBoundingClientRect();
+        dropdown.style.top = (rect.bottom + 8) + 'px';
+        dropdown.style.left = rect.left + 'px';
+
+        // Make sure dropdown doesn't go off-screen to the right
+        if (rect.left + 220 > window.innerWidth) {
+            dropdown.style.left = (window.innerWidth - 230) + 'px';
+        }
+
+        dropdown.classList.add('show');
+        btn.classList.add('active');
+        updateTimelineDateDropdown();
+    }
+}
+
+/**
+ * Close timeline date dropdown
+ */
+function closeTimelineDateDropdown() {
+    const dropdown = document.getElementById('timeline-date-dropdown');
+    const btn = document.getElementById('timeline-date-btn');
+    if (dropdown) dropdown.classList.remove('show');
+    if (btn) btn.classList.remove('active');
+}
+
+/**
+ * Navigate to a specific date by index
+ */
+function timelineNavigateToIndex(index) {
+    if (index >= 0 && index < timelineDates.length) {
+        timelineCurrentIndex = index;
+        updateTimelineDateDisplay();
+        renderActivityTimeline(currentModalUser);
+        closeTimelineDateDropdown();
+    }
+}
+
+/**
+ * Navigate to previous day in timeline
+ */
+function timelineNavigatePrev() {
+    if (timelineCurrentIndex > 0) {
+        timelineCurrentIndex--;
+        updateTimelineDateDisplay();
+        renderActivityTimeline(currentModalUser);
+    }
+}
+
+/**
+ * Navigate to next day in timeline
+ */
+function timelineNavigateNext() {
+    if (timelineCurrentIndex < timelineDates.length - 1) {
+        timelineCurrentIndex++;
+        updateTimelineDateDisplay();
+        renderActivityTimeline(currentModalUser);
+    }
+}
+
+/**
+ * Setup event listeners for timeline navigation buttons
+ * Uses event delegation since the buttons are in the modal
+ */
+function setupTimelineNavigation() {
+    // Use event delegation on document since modal content may be dynamically loaded
+    document.addEventListener('click', function(e) {
+        const prevBtn = e.target.closest('#timeline-prev-day');
+        const nextBtn = e.target.closest('#timeline-next-day');
+        const dateBtn = e.target.closest('#timeline-date-btn');
+        const dateItem = e.target.closest('.timeline-date-item');
+        const dropdown = document.getElementById('timeline-date-dropdown');
+
+        if (prevBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            timelineNavigatePrev();
+        } else if (nextBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            timelineNavigateNext();
+        } else if (dateBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleTimelineDateDropdown();
+        } else if (dateItem) {
+            e.preventDefault();
+            e.stopPropagation();
+            const index = parseInt(dateItem.dataset.index);
+            timelineNavigateToIndex(index);
+        } else if (dropdown && dropdown.classList.contains('show') && !dropdown.contains(e.target)) {
+            // Close dropdown when clicking outside
+            closeTimelineDateDropdown();
+        }
+    });
 }
 
 /**
@@ -6039,6 +6483,7 @@ let userToDelete = null;
 function setupCalisanlarPage() {
     loadCalisanlarData();
     setupCalisanlarEventListeners();
+    initDeleteUserModal();
 }
 
 function loadCalisanlarData() {
@@ -6142,7 +6587,7 @@ function loadCalisanlarData() {
 
         return {
             userId: user.userId,
-            name: user.name,
+            name: getDisplayName(user.userId), // Use display name for sorting
             firstData: firstDataDate,
             lastData: lastDataDate,
             activeTime: user.activeTime ? user.activeTime.total : 0,
@@ -6193,44 +6638,14 @@ function setupCalisanlarEventListeners() {
         });
     }
 
-    // Delete modal buttons
-    const deleteModal = document.getElementById('delete-user-modal');
-    const deleteConfirmBtn = document.getElementById('delete-user-confirm');
-    const deleteCancelBtn = document.getElementById('delete-user-cancel');
-
-    if (deleteConfirmBtn) {
-        deleteConfirmBtn.addEventListener('click', () => {
-            if (userToDelete) {
-                performUserDeletion(userToDelete);
-                deleteModal.style.display = 'none';
-                userToDelete = null;
-            }
-        });
-    }
-
-    if (deleteCancelBtn) {
-        deleteCancelBtn.addEventListener('click', () => {
-            deleteModal.style.display = 'none';
-            userToDelete = null;
-        });
-    }
-
-    // Close modal when clicking outside
-    if (deleteModal) {
-        deleteModal.addEventListener('click', (e) => {
-            if (e.target === deleteModal) {
-                deleteModal.style.display = 'none';
-                userToDelete = null;
-            }
-        });
-    }
-
     // Event delegation for edit and delete buttons in Çalışanlar table
     const tbody = document.getElementById('calisanlar-tbody');
     if (tbody) {
         tbody.addEventListener('click', (e) => {
             const editBtn = e.target.closest('.calisan-edit-btn');
             const deleteBtn = e.target.closest('.calisan-delete-btn');
+            const actionsBtn = e.target.closest('.actions-menu-btn');
+            const actionsDropdown = e.target.closest('.actions-dropdown');
 
             if (editBtn) {
                 e.stopPropagation();
@@ -6242,6 +6657,17 @@ function setupCalisanlarEventListeners() {
                 const userId = deleteBtn.getAttribute('data-user-id');
                 const displayName = deleteBtn.getAttribute('data-display-name');
                 showDeleteUserModal(userId, displayName);
+            } else if (actionsBtn || actionsDropdown) {
+                // Don't trigger row click when clicking actions menu
+                return;
+            } else {
+                // Row click - open edit modal
+                const row = e.target.closest('.clickable-row');
+                if (row) {
+                    const userId = row.getAttribute('data-user-id');
+                    const displayName = row.getAttribute('data-display-name');
+                    openEditUsernameModal(userId, displayName);
+                }
             }
         });
     }
@@ -6338,7 +6764,7 @@ function renderCalisanlarTable() {
         const displayName = getDisplayName(user.userId);
 
         return `
-            <tr>
+            <tr class="clickable-row" data-user-id="${escapeHtml(user.userId)}" data-display-name="${escapeHtml(displayName)}">
                 <td class="row-number">${index + 1}</td>
                 <td>${escapeHtml(displayName)}</td>
                 <td>${firstDataStr}</td>
@@ -6392,10 +6818,31 @@ function formatDateTurkish(date) {
 function formatSecondsToHMS(seconds) {
     if (!seconds || seconds === 0) return '0sa 0dk 0sn';
 
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
+    const MINUTE = 60;
+    const HOUR = 3600;
+    const DAY = 86400;
+    const WEEK = DAY * 7;
+    const MONTH = DAY * 30;
+    const YEAR = DAY * 365;
 
+    const years = Math.floor(seconds / YEAR);
+    const months = Math.floor((seconds % YEAR) / MONTH);
+    const weeks = Math.floor((seconds % MONTH) / WEEK);
+    const days = Math.floor((seconds % WEEK) / DAY);
+    const hours = Math.floor((seconds % DAY) / HOUR);
+    const minutes = Math.floor((seconds % HOUR) / MINUTE);
+    const secs = Math.floor(seconds % MINUTE);
+
+    // Show appropriate format based on duration
+    if (years > 0) {
+        return `${years}yıl ${months}ay ${weeks}hf`;
+    } else if (months > 0) {
+        return `${months}ay ${weeks}hf ${days}gün`;
+    } else if (weeks > 0) {
+        return `${weeks}hf ${days}gün ${hours}sa`;
+    } else if (days > 0) {
+        return `${days}gün ${hours}sa ${minutes}dk`;
+    }
     return `${hours}sa ${minutes}dk ${secs}sn`;
 }
 
@@ -6415,6 +6862,9 @@ function showDeleteUserModal(userId, userName) {
     userToDelete = userId;
     userNameElement.textContent = userName;
     modal.style.display = 'flex';
+
+    // Close any open dropdown
+    closeActiveDropdown();
 }
 
 function performUserDeletion(userId) {
@@ -6497,7 +6947,10 @@ function saveTeams(teams) {
 // Setup Ekipler page
 function setupEkiplerPage() {
     loadTeams();
-    filteredTeamsData = [...teamsData];
+    // Sort teams alphabetically by name (Turkish locale)
+    filteredTeamsData = [...teamsData].sort((a, b) =>
+        a.name.localeCompare(b.name, 'tr', { sensitivity: 'base' })
+    );
     renderTeamsGrid();
     setupEkiplerEventListeners();
 }
@@ -6635,7 +7088,9 @@ function filterTeamsData(searchTerm) {
         const normalizedName = normalizeForTurkishSearch(team.name);
         const normalizedDesc = normalizeForTurkishSearch(team.description || '');
         return normalizedName.includes(normalizedSearch) || normalizedDesc.includes(normalizedSearch);
-    });
+    }).sort((a, b) =>
+        a.name.localeCompare(b.name, 'tr', { sensitivity: 'base' })
+    );
     renderTeamsGrid();
 }
 
@@ -6931,8 +7386,10 @@ function saveTeam() {
     // Save to localStorage
     saveTeams(teamsData);
 
-    // Refresh display
-    filteredTeamsData = [...teamsData];
+    // Refresh display - sort alphabetically
+    filteredTeamsData = [...teamsData].sort((a, b) =>
+        a.name.localeCompare(b.name, 'tr', { sensitivity: 'base' })
+    );
     renderTeamsGrid();
 
     // Close modal
@@ -7012,8 +7469,10 @@ function confirmDeleteTeam() {
     // Save to localStorage
     saveTeams(teamsData);
 
-    // Refresh display
-    filteredTeamsData = [...teamsData];
+    // Refresh display - sort alphabetically
+    filteredTeamsData = [...teamsData].sort((a, b) =>
+        a.name.localeCompare(b.name, 'tr', { sensitivity: 'base' })
+    );
     renderTeamsGrid();
 
     // Close modal
@@ -7030,27 +7489,41 @@ let currentEditingPCName = null;
 let activeDropdownId = null;
 
 /**
+ * Close any open actions dropdown
+ */
+function closeActiveDropdown() {
+    if (activeDropdownId) {
+        const dropdown = document.getElementById(activeDropdownId);
+        const button = dropdown?.previousElementSibling;
+        if (dropdown) {
+            dropdown.classList.remove('show');
+        }
+        if (button) {
+            button.classList.remove('active');
+        }
+        activeDropdownId = null;
+    }
+}
+
+/**
  * Toggle actions dropdown menu
  */
 function toggleActionsMenu(userId, pcName, displayName) {
     const dropdownId = `actions-dropdown-${userId}`;
     const dropdown = document.getElementById(dropdownId);
-    const button = dropdown.previousElementSibling;
-    
-    // Close any other open dropdowns
+    const button = dropdown?.previousElementSibling;
+
+    if (!dropdown || !button) return;
+
+    // Close any other open dropdowns first
     if (activeDropdownId && activeDropdownId !== dropdownId) {
-        const prevDropdown = document.getElementById(activeDropdownId);
-        const prevButton = prevDropdown?.previousElementSibling;
-        if (prevDropdown) {
-            prevDropdown.classList.remove('show');
-            prevButton?.classList.remove('active');
-        }
+        closeActiveDropdown();
     }
-    
+
     // Toggle current dropdown
     const isOpen = dropdown.classList.toggle('show');
     button.classList.toggle('active', isOpen);
-    
+
     activeDropdownId = isOpen ? dropdownId : null;
 }
 
@@ -7059,15 +7532,7 @@ function toggleActionsMenu(userId, pcName, displayName) {
  */
 document.addEventListener('click', function(event) {
     if (!event.target.closest('.actions-menu-btn') && !event.target.closest('.actions-dropdown')) {
-        if (activeDropdownId) {
-            const dropdown = document.getElementById(activeDropdownId);
-            const button = dropdown?.previousElementSibling;
-            if (dropdown) {
-                dropdown.classList.remove('show');
-                button?.classList.remove('active');
-            }
-            activeDropdownId = null;
-        }
+        closeActiveDropdown();
     }
 });
 
@@ -7090,13 +7555,9 @@ function openEditUsernameModal(pcName, currentDisplayName) {
     
     modal.style.display = 'flex';
     input.focus();
-    
-    // Close dropdown
-    if (activeDropdownId) {
-        const dropdown = document.getElementById(activeDropdownId);
-        dropdown?.classList.remove('show');
-        activeDropdownId = null;
-    }
+
+    // Close any open dropdown
+    closeActiveDropdown();
 }
 
 /**
@@ -7216,4 +7677,35 @@ document.addEventListener('keydown', function(event) {
         }
     }
 });
+
+// Debug function to check all users - accessible from console
+window.debugAllUsers = function() {
+    const today = new Date();
+    const dateStr = today.getFullYear() + '-' +
+        String(today.getMonth() + 1).padStart(2, '0') + '-' +
+        String(today.getDate()).padStart(2, '0');
+
+    console.log("Checking all users for today:", dateStr);
+    console.log("=".repeat(60));
+
+    users.forEach(user => {
+        const totalBatches = user.batchIds?.length || 0;
+        const todayBatches = user.batchIds?.filter(b => b.d === dateStr).length || 0;
+        const totalAt = user.batchIds?.reduce((sum, b) => sum + (b.at || 0), 0) || 0;
+        const todayAt = user.batchIds?.filter(b => b.d === dateStr).reduce((sum, b) => sum + (b.at || 0), 0) || 0;
+
+        console.log(`\n${user.name}:`);
+        console.log(`  Total batches: ${totalBatches}, Today's batches: ${todayBatches}`);
+        console.log(`  All-time active: ${(totalAt/3600).toFixed(2)}h`);
+        console.log(`  Today's active: ${(todayAt/3600).toFixed(2)}h`);
+
+        // Sample first 3 batches
+        if (user.batchIds?.length > 0) {
+            console.log(`  Sample batches:`);
+            user.batchIds.slice(0, 3).forEach((b, i) => {
+                console.log(`    ${i}: d="${b.d}", at=${b.at}s, spans_midnight=${b.spans_midnight}`);
+            });
+        }
+    });
+};
 

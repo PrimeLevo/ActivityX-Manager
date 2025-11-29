@@ -114,12 +114,20 @@
 
                     <!-- Team Selection (Hidden by default) -->
                     <div class="team-selection-container" id="team-selection-container" style="display: none;">
-                        <select id="team-select" class="team-select">
-                            <option value="">Ekip Seçin...</option>
-                            <!-- Teams will be populated here dynamically -->
-                        </select>
-                        <div class="team-info" id="team-info" style="display: none;">
-                            <span class="team-member-count"></span>
+                        <div class="teams-search-box">
+                            <input type="text" id="teams-search" placeholder="Ekip ara..." class="users-search-input">
+                            <button class="select-all-btn" id="select-all-teams">Tümünü Seç</button>
+                            <button class="clear-all-btn" id="clear-all-teams">Temizle</button>
+                        </div>
+                        <div class="teams-list" id="teams-list">
+                            <!-- Team checkboxes will be populated here dynamically -->
+                        </div>
+                        <div class="selected-count">
+                            <span id="selected-teams-count">0 ekip seçildi</span>
+                        </div>
+                        <div class="team-members-info" id="team-members-info" style="display: none;">
+                            <div class="team-members-header">Seçilen Ekiplerdeki Üyeler:</div>
+                            <div class="team-members-list" id="selected-team-members"></div>
                         </div>
                     </div>
                 </div>
@@ -136,6 +144,10 @@
                     <div class="checkbox-option">
                         <input type="checkbox" id="include-websites" checked>
                         <label for="include-websites">Kullanıcı Bazlı Web Sitesi Kullanımı</label>
+                    </div>
+                    <div class="checkbox-option">
+                        <input type="checkbox" id="include-daily-breakdown">
+                        <label for="include-daily-breakdown">Günlük Detaylı Rapor</label>
                     </div>
                 </div>
             </div>

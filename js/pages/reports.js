@@ -1,7 +1,7 @@
 // Reports Page JavaScript
 
 let selectedUsers = [];
-let selectedTeam = null;
+let selectedTeams = [];
 let reportHistory = [];
 let currentReportData = null;
 
@@ -11,11 +11,26 @@ let reportEndDate = null;
 let reportStartCalendar = null;
 let reportEndCalendar = null;
 
+// Filter out system apps that should not be displayed in reports
+function shouldFilterApp(appName) {
+    if (!appName) return true;
+    const lowerName = appName.toLowerCase();
+    return lowerName === 'lockapp' || lowerName === 'lock app';
+}
+
 // Turkish month names for custom calendar
 const turkishMonths = [
     'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
     'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'
 ];
+
+// Turkish day names (Sunday = 0, Monday = 1, etc.)
+const turkishDays = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+
+// Get Turkish day name from date
+function getTurkishDayName(date) {
+    return turkishDays[date.getDay()];
+}
 
 // Format date in Turkish
 function formatDateTurkish(date) {
@@ -45,17 +60,12 @@ function initReportsPage() {
 
 // Initialize Turkish calendars for date selection
 function initializeTurkishCalendars() {
-    // Set default date range (last 7 days)
-    const today = new Date();
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(today.getDate() - 6);
+    // No default dates - user must select them
+    window.reportStartDate = null;
+    window.reportEndDate = null;
 
-    // Make dates global for calendar integration
-    window.reportStartDate = sevenDaysAgo;
-    window.reportEndDate = today;
-
-    reportStartDate = sevenDaysAgo;
-    reportEndDate = today;
+    reportStartDate = null;
+    reportEndDate = null;
 
     // Create Turkish calendars (they will be initialized when modal opens)
 }
@@ -74,21 +84,21 @@ function initializeDateInputs() {
     }
 }
 
-// Set default date range (last 7 days)
+// Clear date inputs (no default dates - user must select)
 function setDefaultDateRange() {
-    const today = new Date();
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(today.getDate() - 6); // Last 7 days including today
-
     const startDateInput = document.getElementById('start-date');
     const endDateInput = document.getElementById('end-date');
 
+    // Clear any existing values - user must select dates
     if (startDateInput) {
-        startDateInput.value = sevenDaysAgo.toISOString().split('T')[0];
+        startDateInput.value = '';
     }
     if (endDateInput) {
-        endDateInput.value = today.toISOString().split('T')[0];
+        endDateInput.value = '';
     }
+
+    // Update the info display to show dates need to be selected
+    updateDateRangeInfo();
 }
 
 // Setup all event listeners
@@ -139,11 +149,16 @@ function setupEventListeners() {
     if (selectAllBtn) selectAllBtn.addEventListener('click', selectAllUsers);
     if (clearAllBtn) clearAllBtn.addEventListener('click', clearAllUsers);
 
-    // Team selection
-    const teamSelect = document.getElementById('team-select');
-    if (teamSelect) {
-        teamSelect.addEventListener('change', handleTeamSelection);
+    // Team selection - multiple teams
+    const teamsSearch = document.getElementById('teams-search');
+    if (teamsSearch) {
+        teamsSearch.addEventListener('input', handleTeamSearch);
     }
+
+    const selectAllTeamsBtn = document.getElementById('select-all-teams');
+    const clearAllTeamsBtn = document.getElementById('clear-all-teams');
+    if (selectAllTeamsBtn) selectAllTeamsBtn.addEventListener('click', selectAllTeams);
+    if (clearAllTeamsBtn) clearAllTeamsBtn.addEventListener('click', clearAllTeams);
 
     // Generate report button
     const generateBtn = document.getElementById('generate-report-btn');
@@ -323,6 +338,20 @@ function handleSelectionTypeClick(e) {
     const specificUsersContainer = document.getElementById('specific-users-container');
     const teamSelectionContainer = document.getElementById('team-selection-container');
 
+    // Clear previous selections when switching modes
+    // Clear specific users selection
+    selectedUsers = [];
+    const userCheckboxes = document.querySelectorAll('#users-list input[type="checkbox"]');
+    userCheckboxes.forEach(cb => cb.checked = false);
+    updateSelectedUsersCount();
+
+    // Clear team selection
+    selectedTeams = [];
+    const teamCheckboxes = document.querySelectorAll('#teams-list input[type="checkbox"]');
+    teamCheckboxes.forEach(cb => cb.checked = false);
+    updateSelectedTeamsCount();
+    updateSelectedTeamMembers(); // Also hide the team members display
+
     // Hide all containers first
     specificUsersContainer.style.display = 'none';
     teamSelectionContainer.style.display = 'none';
@@ -371,18 +400,16 @@ function populateUsersList() {
         userItem.className = 'checkbox-option user-checkbox-item';
         userItem.innerHTML = `
             <input type="checkbox" id="user-${user}" value="${user}">
-            <label for="user-${user}">${displayName}</label>
+            <label>${displayName}</label>
         `;
 
         const checkbox = userItem.querySelector('input');
         checkbox.addEventListener('change', handleUserCheckboxChange);
 
-        // Make the entire item clickable
+        // Make the entire item clickable (excluding direct checkbox clicks)
         userItem.addEventListener('click', function(e) {
-            // Only toggle if we didn't click directly on the checkbox
             if (e.target.type !== 'checkbox') {
                 checkbox.checked = !checkbox.checked;
-                // Trigger the change event
                 checkbox.dispatchEvent(new Event('change'));
             }
         });
@@ -454,35 +481,154 @@ function clearAllUsers() {
     updateSelectedUsersCount();
 }
 
-// Populate teams list
+// Populate teams list with checkboxes for multiple selection
 function populateTeamsList() {
-    const teamSelect = document.getElementById('team-select');
-    if (!teamSelect) return;
+    const teamsList = document.getElementById('teams-list');
+    if (!teamsList) return;
 
     // Get teams from localStorage using the correct key
     const TEAMS_STORAGE_KEY = 'kta_teams_v1';
     const teams = JSON.parse(localStorage.getItem(TEAMS_STORAGE_KEY) || '[]');
 
-    teamSelect.innerHTML = '<option value="">Ekip Seçin...</option>';
+    teamsList.innerHTML = '';
 
     if (teams.length === 0) {
-        const option = document.createElement('option');
-        option.value = '';
-        option.textContent = 'Henüz ekip yok';
-        option.disabled = true;
-        teamSelect.appendChild(option);
+        teamsList.innerHTML = '<div style="padding: 20px; text-align: center; color: #6b7280;">Henüz ekip oluşturulmamış</div>';
         return;
     }
 
+    // Sort teams alphabetically
+    teams.sort((a, b) => a.name.localeCompare(b.name, 'tr'));
+
     teams.forEach(team => {
-        const option = document.createElement('option');
-        option.value = team.id;
-        option.textContent = team.name;
-        teamSelect.appendChild(option);
+        const memberCount = team.members ? team.members.length : 0;
+        const teamItem = document.createElement('div');
+        teamItem.className = 'checkbox-option team-checkbox-item';
+        teamItem.innerHTML = `
+            <input type="checkbox" id="team-${team.id}" value="${team.id}">
+            <label>${team.name} <span class="team-member-badge">(${memberCount} üye)</span></label>
+        `;
+
+        const checkbox = teamItem.querySelector('input');
+        checkbox.addEventListener('change', handleTeamCheckboxChange);
+
+        // Make the entire item clickable (excluding direct checkbox clicks)
+        teamItem.addEventListener('click', function(e) {
+            if (e.target.type !== 'checkbox') {
+                checkbox.checked = !checkbox.checked;
+                checkbox.dispatchEvent(new Event('change'));
+            }
+        });
+
+        teamsList.appendChild(teamItem);
     });
 }
 
-// Handle team selection
+// Handle team checkbox change
+function handleTeamCheckboxChange(e) {
+    const teamId = e.target.value;
+
+    if (e.target.checked) {
+        if (!selectedTeams.includes(teamId)) {
+            selectedTeams.push(teamId);
+        }
+    } else {
+        selectedTeams = selectedTeams.filter(id => id !== teamId);
+    }
+
+    updateSelectedTeamsCount();
+    updateSelectedTeamMembers();
+}
+
+// Update selected teams count
+function updateSelectedTeamsCount() {
+    const countElement = document.getElementById('selected-teams-count');
+    if (countElement) {
+        countElement.textContent = `${selectedTeams.length} ekip seçildi`;
+    }
+}
+
+// Update selected team members display
+function updateSelectedTeamMembers() {
+    const membersInfo = document.getElementById('team-members-info');
+    const membersList = document.getElementById('selected-team-members');
+
+    if (!membersInfo || !membersList) return;
+
+    if (selectedTeams.length === 0) {
+        membersInfo.style.display = 'none';
+        return;
+    }
+
+    const TEAMS_STORAGE_KEY = 'kta_teams_v1';
+    const teams = JSON.parse(localStorage.getItem(TEAMS_STORAGE_KEY) || '[]');
+
+    // Collect all unique members from selected teams
+    const allMembers = new Set();
+    selectedTeams.forEach(teamId => {
+        const team = teams.find(t => t.id === teamId);
+        if (team && team.members) {
+            team.members.forEach(member => {
+                const userId = member.userId || member;
+                allMembers.add(userId);
+            });
+        }
+    });
+
+    // Get display names and sort
+    const memberNames = Array.from(allMembers).map(userId => {
+        return window.getDisplayName ? window.getDisplayName(userId) : userId;
+    }).sort((a, b) => a.localeCompare(b, 'tr'));
+
+    membersInfo.style.display = 'block';
+    membersList.innerHTML = memberNames.map(name => `<div class="team-member-item">${name}</div>`).join('');
+}
+
+// Handle team search
+function handleTeamSearch(e) {
+    const searchTerm = e.target.value.toLowerCase();
+    const teamItems = document.querySelectorAll('.team-checkbox-item');
+
+    teamItems.forEach(item => {
+        const label = item.querySelector('label').textContent.toLowerCase();
+        if (label.includes(searchTerm)) {
+            item.style.display = 'flex';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+// Select all teams
+function selectAllTeams() {
+    const checkboxes = document.querySelectorAll('#teams-list input[type="checkbox"]');
+    selectedTeams = [];
+
+    checkboxes.forEach(checkbox => {
+        if (checkbox.parentElement.style.display !== 'none') {
+            checkbox.checked = true;
+            selectedTeams.push(checkbox.value);
+        }
+    });
+
+    updateSelectedTeamsCount();
+    updateSelectedTeamMembers();
+}
+
+// Clear all teams
+function clearAllTeams() {
+    const checkboxes = document.querySelectorAll('#teams-list input[type="checkbox"]');
+
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = false;
+    });
+
+    selectedTeams = [];
+    updateSelectedTeamsCount();
+    updateSelectedTeamMembers();
+}
+
+// Legacy function - kept for compatibility but no longer used
 function handleTeamSelection(e) {
     const teamId = e.target.value;
     const teamInfo = document.getElementById('team-info');
@@ -493,8 +639,8 @@ function handleTeamSelection(e) {
         const team = teams.find(t => t.id === teamId);
 
         if (team) {
-            selectedTeam = team;
-            teamInfo.style.display = 'block';
+            selectedTeams = [teamId];
+            if (teamInfo) teamInfo.style.display = 'block';
 
             // Get display names for all team members
             const memberNames = team.members.map(member => {
@@ -507,13 +653,15 @@ function handleTeamSelection(e) {
             const memberCount = team.members.length;
             const memberListHTML = memberNames.map(name => `<div class="team-member-item">${name}</div>`).join('');
 
-            teamInfo.innerHTML = `
-                <div class="team-member-count">${memberCount} üye:</div>
-                <div class="team-members-list">${memberListHTML}</div>
-            `;
+            if (teamInfo) {
+                teamInfo.innerHTML = `
+                    <div class="team-member-count">${memberCount} üye:</div>
+                    <div class="team-members-list">${memberListHTML}</div>
+                `;
+            }
         }
     } else {
-        selectedTeam = null;
+        selectedTeams = [];
         teamInfo.style.display = 'none';
     }
 }
@@ -549,14 +697,31 @@ function getSelectedUsersList() {
     switch (selectionType) {
         case 'all':
             // Include userId as fallback, and filter out any undefined/null values
-            return persistedUsers
+            // Use Set to ensure no duplicates
+            return [...new Set(persistedUsers
                 .map(user => user.pcName || user.username || user.userId)
-                .filter(user => user); // Remove any undefined/null values
+                .filter(user => user))]; // Remove any undefined/null values
         case 'specific':
-            return selectedUsers;
+            // Use Set to ensure no duplicates
+            return [...new Set(selectedUsers)];
         case 'team':
-            if (selectedTeam) {
-                return selectedTeam.members;
+            if (selectedTeams.length > 0) {
+                const TEAMS_STORAGE_KEY = 'kta_teams_v1';
+                const teams = JSON.parse(localStorage.getItem(TEAMS_STORAGE_KEY) || '[]');
+
+                // Collect all unique members from selected teams
+                const allMembers = new Set();
+                selectedTeams.forEach(teamId => {
+                    const team = teams.find(t => t.id === teamId);
+                    if (team && team.members) {
+                        team.members.forEach(member => {
+                            const userId = member.userId || member;
+                            allMembers.add(userId);
+                        });
+                    }
+                });
+
+                return Array.from(allMembers);
             }
             return [];
         default:
@@ -566,10 +731,16 @@ function getSelectedUsersList() {
 
 // Generate report
 async function generateReport() {
+    // Check if dates are selected (using calendar variables)
+    if (!window.reportStartDate || !window.reportEndDate) {
+        turkishAlert('Lütfen başlangıç ve bitiş tarihlerini seçin.');
+        return;
+    }
+
     // Get date range from modal
     const dateRange = window.getReportDateRange ? window.getReportDateRange() : null;
     if (!dateRange) {
-        turkishAlert('Lütfen geçerli bir tarih aralığı seçin. Başlangıç tarihi bitiş tarihinden önce olmalıdır.');
+        turkishAlert('Geçersiz tarih aralığı. Başlangıç tarihi bitiş tarihinden önce olmalıdır.');
         return;
     }
 
@@ -583,6 +754,7 @@ async function generateReport() {
     // Get report content options
     const includeApps = document.getElementById('include-apps')?.checked ?? true;
     const includeWebsites = document.getElementById('include-websites')?.checked ?? true;
+    const includeDailyBreakdown = document.getElementById('include-daily-breakdown')?.checked ?? false;
 
     // Close the generation modal
     if (window.closeReportGenerationModal) {
@@ -606,6 +778,7 @@ async function generateReport() {
         const reportData = processReportData(persistedUsers, users, dateRange, {
             includeApps: includeApps,
             includeWebsites: includeWebsites,
+            includeDailyBreakdown: includeDailyBreakdown,
             includeTimeline: true,
             includeSummary: true
         });
@@ -652,7 +825,8 @@ function processReportData(persistedUsers, userNames, dateRange, options) {
             applications: {},
             websites: {},
             timeline: [],
-            userDetails: []
+            userDetails: [],
+            dailyData: {} // New: daily breakdown data { 'YYYY-MM-DD': { users: { userName: { activeTime, apps, websites } }, totalActiveTime } }
         }
     };
 
@@ -673,6 +847,7 @@ function processReportData(persistedUsers, userNames, dateRange, options) {
         const userApps = {};
         const userWebsites = {};
         let batchesInRange = 0;
+        const userDailyData = {}; // Track daily data for this user
 
         // Process batch data - batches are stored in batchIds array
         if (userData.batchIds && Array.isArray(userData.batchIds)) {
@@ -697,36 +872,71 @@ function processReportData(persistedUsers, userNames, dateRange, options) {
                 if (batchDate >= dateRange.startDate && batchDate <= dateRange.endDate) {
                     batchesInRange++;
 
+                    // Get the date key for daily breakdown (YYYY-MM-DD format)
+                    const dayKey = dateStr;
+
+                    // Initialize daily data structure for this day if needed
+                    if (options.includeDailyBreakdown) {
+                        if (!userDailyData[dayKey]) {
+                            userDailyData[dayKey] = {
+                                activeTime: 0,
+                                apps: {},
+                                websites: {}
+                            };
+                        }
+                    }
+
                     // Add active time from batch (using short field names: at = active time)
                     const batchActiveTime = batch.at || batch.total_active_seconds || batch.active_time_seconds || 0;
 
                     userActiveTime += batchActiveTime;
 
+                    // Add to daily data
+                    if (options.includeDailyBreakdown && userDailyData[dayKey]) {
+                        userDailyData[dayKey].activeTime += batchActiveTime;
+                    }
+
                     // Process applications from batch (using short field name: ap = applications)
-                    if (options.includeApps && batch.ap) {
+                    // Always collect app data for counting and daily breakdown
+                    if (batch.ap) {
                         const apps = batch.ap;
 
                         if (Array.isArray(apps)) {
                             apps.forEach(appItem => {
                                 const appName = appItem.name || appItem.app_name || 'Unknown';
+                                // Skip system apps like LockApp
+                                if (shouldFilterApp(appName)) return;
                                 // Ensure time is converted to number
                                 const appTime = Number(appItem.usage || appItem.time || appItem.active_seconds || 0);
+                                // Always collect for counting
                                 userApps[appName] = (userApps[appName] || 0) + appTime;
                                 totalApps.add(appName);
+                                // Add to daily data
+                                if (options.includeDailyBreakdown && userDailyData[dayKey]) {
+                                    userDailyData[dayKey].apps[appName] = (userDailyData[dayKey].apps[appName] || 0) + appTime;
+                                }
                             });
                         } else if (typeof apps === 'object') {
                             // Handle object format: {appName: time, ...}
                             Object.entries(apps).forEach(([app, time]) => {
+                                // Skip system apps like LockApp
+                                if (shouldFilterApp(app)) return;
                                 // Ensure time is converted to number
                                 const numTime = Number(time) || 0;
+                                // Always collect for counting
                                 userApps[app] = (userApps[app] || 0) + numTime;
                                 totalApps.add(app);
+                                // Add to daily data
+                                if (options.includeDailyBreakdown && userDailyData[dayKey]) {
+                                    userDailyData[dayKey].apps[app] = (userDailyData[dayKey].apps[app] || 0) + numTime;
+                                }
                             });
                         }
                     }
 
                     // Process websites from batch (using short field name: ur = URLs/websites)
-                    if (options.includeWebsites && batch.ur) {
+                    // Always collect website data for counting and daily breakdown
+                    if (batch.ur) {
                         const sites = batch.ur;
 
                         if (Array.isArray(sites)) {
@@ -737,12 +947,13 @@ function processReportData(persistedUsers, userNames, dateRange, options) {
                                 // Extract time from 't' field (short field name) or 'time' field
                                 const siteTime = Number(siteItem.t || siteItem.time || siteItem.usage || siteItem.active_seconds || 0);
 
-                                // Debug logging for first site
-                                if (Object.keys(userWebsites).length === 0) {
-                                }
-
+                                // Always collect for counting
                                 userWebsites[cleanSite] = (userWebsites[cleanSite] || 0) + siteTime;
                                 totalWebsites.add(cleanSite);
+                                // Add to daily data
+                                if (options.includeDailyBreakdown && userDailyData[dayKey]) {
+                                    userDailyData[dayKey].websites[cleanSite] = (userDailyData[dayKey].websites[cleanSite] || 0) + siteTime;
+                                }
                             });
                         } else if (typeof sites === 'object') {
                             // Handle object format: {siteName: {t: time, ti: title}, ...}
@@ -755,12 +966,13 @@ function processReportData(persistedUsers, userNames, dateRange, options) {
                                     Number(siteData.t || siteData.time || 0) :
                                     Number(siteData || 0);
 
-                                // Debug logging for first site
-                                if (Object.keys(userWebsites).length === 0) {
-                                }
-
+                                // Always collect for counting
                                 userWebsites[cleanSite] = (userWebsites[cleanSite] || 0) + numTime;
                                 totalWebsites.add(cleanSite);
+                                // Add to daily data
+                                if (options.includeDailyBreakdown && userDailyData[dayKey]) {
+                                    userDailyData[dayKey].websites[cleanSite] = (userDailyData[dayKey].websites[cleanSite] || 0) + numTime;
+                                }
                             });
                         }
                     }
@@ -778,7 +990,8 @@ function processReportData(persistedUsers, userNames, dateRange, options) {
                 activeTime: userActiveTime,
                 applications: userApps,
                 websites: userWebsites,
-                batchCount: batchesInRange
+                batchCount: batchesInRange,
+                dailyData: options.includeDailyBreakdown ? userDailyData : null
             });
 
             totalActiveTime += userActiveTime;
@@ -792,6 +1005,25 @@ function processReportData(persistedUsers, userNames, dateRange, options) {
             Object.entries(userWebsites).forEach(([site, time]) => {
                 report.data.websites[site] = (report.data.websites[site] || 0) + time;
             });
+
+            // Aggregate daily data into report.data.dailyData
+            if (options.includeDailyBreakdown) {
+                Object.entries(userDailyData).forEach(([dayKey, dayData]) => {
+                    if (!report.data.dailyData[dayKey]) {
+                        report.data.dailyData[dayKey] = {
+                            totalActiveTime: 0,
+                            users: {}
+                        };
+                    }
+                    report.data.dailyData[dayKey].totalActiveTime += dayData.activeTime;
+                    report.data.dailyData[dayKey].users[userName] = {
+                        displayName: displayName,
+                        activeTime: dayData.activeTime,
+                        apps: dayData.apps,
+                        websites: dayData.websites
+                    };
+                });
+            }
         }
     });
 
@@ -1081,6 +1313,50 @@ function downloadReportAsCSV(reportData) {
             csv += `${index + 1},"${user.displayName}",${formatTime(user.activeTime)},${appCount},${webCount},${batchCount}\n`;
         });
         csv += '\n';
+
+        // Daily breakdown (only if includeDailyBreakdown option is true)
+        if (reportData.options?.includeDailyBreakdown && reportData.data.dailyData && Object.keys(reportData.data.dailyData).length > 0) {
+            csv += '=== GÜNLÜK AKTİVİTE DETAYI ===\n\n';
+
+            // Sort days chronologically
+            const sortedDays = Object.keys(reportData.data.dailyData).sort();
+
+            sortedDays.forEach(dayKey => {
+                const dayData = reportData.data.dailyData[dayKey];
+                const dateObj = new Date(dayKey);
+                const formattedDate = formatDateTurkish(dateObj);
+                const dayName = getTurkishDayName(dateObj);
+
+                csv += `--- ${formattedDate} (${dayName}) ---\n\n`;
+
+                // User breakdown for this day
+                csv += 'Kullanıcı,Aktif Süre,Uygulama Sayısı,Web Sitesi Sayısı,En Çok Kullanılan Uygulama,En Çok Ziyaret Edilen Site\n';
+
+                // Sort users by active time for this day
+                const dayUsers = Object.entries(dayData.users)
+                    .sort((a, b) => b[1].activeTime - a[1].activeTime);
+
+                dayUsers.forEach(([userName, userData]) => {
+                    // Get app and website counts
+                    const appCount = Object.keys(userData.apps || {}).length;
+                    const websiteCount = Object.keys(userData.websites || {}).length;
+
+                    // Get top app
+                    const topApp = Object.entries(userData.apps || {})
+                        .sort((a, b) => b[1] - a[1])[0];
+                    const topAppStr = topApp ? `${topApp[0]} (${formatTime(topApp[1])})` : '-';
+
+                    // Get top website
+                    const topSite = Object.entries(userData.websites || {})
+                        .sort((a, b) => b[1] - a[1])[0];
+                    const topSiteStr = topSite ? `${topSite[0]} (${formatTime(topSite[1])})` : '-';
+
+                    csv += `"${userData.displayName}",${formatTime(userData.activeTime)},${appCount},${websiteCount},"${topAppStr}","${topSiteStr}"\n`;
+                });
+
+                csv += '\n';
+            });
+        }
 
         // Per-user application breakdown (only if includeApps option is true)
         if (reportData.options?.includeApps !== false) {

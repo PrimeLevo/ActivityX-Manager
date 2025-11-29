@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LocalStorage Data Checker</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #324659;
+            margin-top: 0;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+            font-weight: 500;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .info-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #5F8FA8;
+        }
+        .info-card h3 {
+            margin: 0 0 10px 0;
+            color: #324659;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .info-card .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #5F8FA8;
+        }
+        .data-preview {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+        }
+        .data-preview h3 {
+            margin-top: 0;
+            color: #324659;
+        }
+        .data-preview pre {
+            background: white;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+            line-height: 1.5;
+            border: 1px solid #dee2e6;
+        }
+        .user-list {
+            list-style: none;
+            padding: 0;
+        }
+        .user-item {
+            background: white;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 4px;
+            border-left: 3px solid #5F8FA8;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .user-name {
+            font-weight: 600;
+            color: #324659;
+        }
+        .user-stats {
+            font-size: 12px;
+            color: #6c757d;
+        }
+        button {
+            background: #5F8FA8;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #4A7B93;
+        }
+        .refresh-btn {
+            float: right;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 LocalStorage Data Checker</h1>
+        <button class="refresh-btn" onclick="location.reload()">🔄 Refresh</button>
+
+        <div id="status"></div>
+
+        <div id="info-section"></div>
+
+        <div id="users-section"></div>
+
+        <div id="data-preview-section"></div>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'kta_persisted_users_v1';
+        const TEAMS_STORAGE_KEY = 'kta_teams_v1';
+
+        function checkLocalStorage() {
+            const statusDiv = document.getElementById('status');
+            const infoSection = document.getElementById('info-section');
+            const usersSection = document.getElementById('users-section');
+            const dataPreviewSection = document.getElementById('data-preview-section');
+
+            try {
+                // Check users data
+                const usersData = localStorage.getItem(STORAGE_KEY);
+                const teamsData = localStorage.getItem(TEAMS_STORAGE_KEY);
+
+                if (!usersData) {
+                    statusDiv.innerHTML = `
+                        <div class="status error">
+                            ❌ <strong>No data found in localStorage</strong><br>
+                            Key: <code>${STORAGE_KEY}</code><br>
+                            The localStorage is empty. You need to fetch data from Supabase first.
+                        </div>
+                    `;
+                    return;
+                }
+
+                const users = JSON.parse(usersData);
+                const teams = teamsData ? JSON.parse(teamsData) : [];
+
+                if (!Array.isArray(users) || users.length === 0) {
+                    statusDiv.innerHTML = `
+                        <div class="status warning">
+                            ⚠️ <strong>localStorage exists but contains no users</strong><br>
+                            Found: ${users ? typeof users : 'null'}<br>
+                            You may need to refresh the data from Supabase.
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Calculate statistics
+                const totalUsers = users.length;
+                const totalActiveTime = users.reduce((sum, user) => {
+                    return sum + (user.activeTime?.total || 0);
+                }, 0);
+                const totalBatches = users.reduce((sum, user) => {
+                    return sum + (user.batchIds?.length || 0);
+                }, 0);
+                const totalApps = users.reduce((sum, user) => {
+                    return sum + (user.apps?.length || 0);
+                }, 0);
+                const totalWebsites = users.reduce((sum, user) => {
+                    return sum + (user.websites?.length || 0);
+                }, 0);
+
+                // Format active time
+                const hours = Math.floor(totalActiveTime / 3600);
+                const minutes = Math.floor((totalActiveTime % 3600) / 60);
+                const formattedTime = `${hours}h ${minutes}m`;
+
+                // Success status
+                statusDiv.innerHTML = `
+                    <div class="status success">
+                        ✅ <strong>Data found in localStorage!</strong><br>
+                        Storage Key: <code>${STORAGE_KEY}</code>
+                    </div>
+                `;
+
+                // Info cards
+                infoSection.innerHTML = `
+                    <div class="info-grid">
+                        <div class="info-card">
+                            <h3>Total Users</h3>
+                            <div class="value">${totalUsers}</div>
+                        </div>
+                        <div class="info-card">
+                            <h3>Total Active Time</h3>
+                            <div class="value">${formattedTime}</div>
+                        </div>
+                        <div class="info-card">
+                            <h3>Total Batches</h3>
+                            <div class="value">${totalBatches}</div>
+                        </div>
+                        <div class="info-card">
+                            <h3>Total Apps</h3>
+                            <div class="value">${totalApps}</div>
+                        </div>
+                        <div class="info-card">
+                            <h3>Total Websites</h3>
+                            <div class="value">${totalWebsites}</div>
+                        </div>
+                        <div class="info-card">
+                            <h3>Teams</h3>
+                            <div class="value">${teams.length}</div>
+                        </div>
+                    </div>
+                `;
+
+                // User list
+                const userListHTML = users.map(user => {
+                    const activeTime = user.activeTime?.total || 0;
+                    const h = Math.floor(activeTime / 3600);
+                    const m = Math.floor((activeTime % 3600) / 60);
+                    const timeStr = `${h}h ${m}m`;
+                    const apps = user.apps?.length || 0;
+                    const websites = user.websites?.length || 0;
+                    const batches = user.batchIds?.length || 0;
+
+                    return `
+                        <li class="user-item">
+                            <div>
+                                <div class="user-name">${user.name || 'Unknown User'}</div>
+                                <div class="user-stats">
+                                    Active Time: ${timeStr} | Apps: ${apps} | Websites: ${websites} | Batches: ${batches}
+                                </div>
+                            </div>
+                        </li>
+                    `;
+                }).join('');
+
+                usersSection.innerHTML = `
+                    <div class="data-preview">
+                        <h3>👥 Users (${totalUsers})</h3>
+                        <ul class="user-list">
+                            ${userListHTML}
+                        </ul>
+                    </div>
+                `;
+
+                // Raw data preview (first user)
+                dataPreviewSection.innerHTML = `
+                    <div class="data-preview">
+                        <h3>🔍 Sample Data (First User)</h3>
+                        <pre>${JSON.stringify(users[0], null, 2)}</pre>
+                    </div>
+                `;
+
+            } catch (error) {
+                statusDiv.innerHTML = `
+                    <div class="status error">
+                        ❌ <strong>Error reading localStorage</strong><br>
+                        ${error.message}<br>
+                        <pre>${error.stack}</pre>
+                    </div>
+                `;
+            }
+        }
+
+        // Run check on page load
+        checkLocalStorage();
+    </script>
+</body>
+</html>

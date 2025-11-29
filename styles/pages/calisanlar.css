@@ -60,14 +60,38 @@
 }
 
 /* Table column width adjustments for Çalışanlar page */
+#calisanlar-table {
+    table-layout: fixed;
+    width: 100%;
+}
+
+#calisanlar-table th,
+#calisanlar-table td {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* # column - fix alignment */
 #calisanlar-table th:nth-child(1),
 #calisanlar-table td:nth-child(1) {
-    width: 50px; /* # column */
+    width: 45px;
+    min-width: 45px;
+    max-width: 45px;
+    text-align: center;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+}
+
+#calisanlar-table .row-number-header,
+#calisanlar-table .row-number {
+    width: 45px;
+    text-align: center;
 }
 
 #calisanlar-table th:nth-child(2),
 #calisanlar-table td:nth-child(2) {
-    width: 20%; /* Kullanıcı Adı - wider to use freed space */
+    width: 18%; /* Kullanıcı Adı */
     min-width: 150px;
 }
 
@@ -75,24 +99,48 @@
 #calisanlar-table td:nth-child(3),
 #calisanlar-table th:nth-child(4),
 #calisanlar-table td:nth-child(4) {
-    width: 12%; /* İlk Veri, Son Veri */
+    width: 11%; /* İlk Veri, Son Veri */
+    min-width: 100px;
 }
 
 #calisanlar-table th:nth-child(5),
 #calisanlar-table td:nth-child(5) {
-    width: 15%; /* Toplam Aktif Süre */
+    width: 16%; /* Toplam Aktif Süre - more space for header */
+    min-width: 140px;
 }
 
 #calisanlar-table th:nth-child(6),
-#calisanlar-table td:nth-child(6),
+#calisanlar-table td:nth-child(6) {
+    width: 12%; /* Uygulama Sayısı */
+    min-width: 115px;
+}
+
 #calisanlar-table th:nth-child(7),
 #calisanlar-table td:nth-child(7) {
-    width: 11%; /* Uygulama Sayısı, Web Sitesi Sayısı */
+    width: 13%; /* Web Sitesi Sayısı */
+    min-width: 120px;
 }
 
 #calisanlar-table th:nth-child(8),
 #calisanlar-table td:nth-child(8) {
-    width: 120px; /* İşlemler */
+    width: 55px; /* İşlemler - compact for three-dot icon */
+    min-width: 55px;
+    max-width: 55px;
+    text-align: center;
+    overflow: visible; /* Allow dropdown to overflow */
+    padding: 0;
+}
+
+/* Center the actions menu button in İşlemler column */
+#calisanlar-table td:nth-child(8) .action-cell-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+}
+
+#calisanlar-table td:nth-child(8) .actions-menu-btn {
+    margin: 0 auto;
 }
 
 /* Delete button specific styling */

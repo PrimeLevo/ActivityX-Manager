@@ -410,84 +410,140 @@ html, body {
 
 .custom-date-popup {
     position: absolute;
-    top: calc(100% + 8px);
-    left: 0;
-    background: white;
-    border: 1px solid #e9ecef;
-    border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    top: calc(100% + 12px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border: none;
+    border-radius: 16px;
+    box-shadow: 0 20px 40px rgba(74, 123, 147, 0.15),
+                0 8px 16px rgba(0, 0, 0, 0.08),
+                0 0 0 1px rgba(74, 123, 147, 0.08);
     z-index: 2147483647;
-    width: 450px;
-    max-height: 350px;
-    animation: fadeInDown 0.2s ease-out;
+    width: 400px;
+    animation: popupSlideIn 0.25s ease-out;
     overflow: visible;
+}
+
+@keyframes popupSlideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-8px) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0) scale(1);
+    }
 }
 
 .popup-arrow {
     position: absolute;
     top: -8px;
-    left: 20px;
+    left: 50%;
+    transform: translateX(-50%);
     width: 0;
     height: 0;
-    border-left: 8px solid transparent;
-    border-right: 8px solid transparent;
-    border-bottom: 8px solid white;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-bottom: 10px solid white;
     z-index: 2147483647;
+    filter: drop-shadow(0 -2px 2px rgba(74, 123, 147, 0.08));
 }
 
 .popup-arrow::before {
-    content: '';
-    position: absolute;
-    top: 1px;
-    right: 0px;
-    width: 0;
-    height: 0;
-    border-left: 8px solid transparent;
-    border-right: 8px solid transparent;
-    border-bottom: 8px solid #e1e4e8;
-    z-index: -1;
+    display: none;
 }
 
 /* Table page specific styles - popup opens to the left */
 #custom-date-selector {
     left: auto;
     right: 0;
+    transform: none;
 }
 
 #custom-date-selector .popup-arrow {
     left: auto;
-    right: 20px;
+    right: 24px;
+    transform: none;
+}
+
+@keyframes popupSlideInRight {
+    from {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+#custom-date-selector {
+    animation: popupSlideInRight 0.25s ease-out;
 }
 
 .popup-content {
-    padding: 1.5rem;
+    padding: 1.25rem;
+}
+
+/* Popup header */
+.popup-content::before {
+    content: 'Tarih Aralığı Seçin';
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #4A7B93;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid rgba(74, 123, 147, 0.1);
+    text-align: center;
+    letter-spacing: 0.3px;
 }
 
 .date-range-container {
     display: flex;
     flex-direction: column;
-    gap: 0;
+    gap: 0.75rem;
 }
 
 .date-row {
     display: flex;
     align-items: center;
-    gap: 0.8rem;
-    height: 40px;
+    gap: 0.75rem;
+    padding: 0.6rem 0.75rem;
+    background: rgba(74, 123, 147, 0.03);
+    border-radius: 10px;
+    transition: background 0.2s ease;
 }
 
-.date-label {
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: #333;
-    min-width: 70px;
+.date-row:hover {
+    background: rgba(74, 123, 147, 0.06);
+}
+
+.custom-date-popup .date-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #4A7B93;
+    min-width: 60px;
+    width: 60px;
+    flex-shrink: 0;
     text-align: left;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    line-height: 1.2;
+}
+
+.date-input-wrapper {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+    width: auto !important;
 }
 
 .date-input {
     padding: 0.5rem 0.7rem;
-    border: 1px solid #e9ecef;
-    border-radius: 4px;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
     background: white;
     color: #2c3e50;
     font-size: 0.85rem;
@@ -499,32 +555,49 @@ html, body {
 
 .date-input:focus {
     outline: none;
-    border-color: #3B8FD1;
-    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
-}
-
-.date-input {
-    padding: 0.5rem 0.7rem;
-    border: 1px solid #e9ecef;
-    border-radius: 4px;
-    background: white;
-    color: #2c3e50;
-    font-size: 0.85rem;
-    font-family: inherit;
-    transition: all 0.2s ease;
-    width: 160px;
-    height: 36px;
-    box-sizing: border-box;
+    border-color: #4A7B93;
+    box-shadow: 0 0 0 3px rgba(74, 123, 147, 0.12);
 }
 
 .date-row .btn {
-    height: 36px;
-    width: 85px;
+    height: 38px;
+    min-width: 80px;
+    padding: 0 14px;
     white-space: nowrap;
     text-align: center;
     display: flex;
     align-items: center;
     justify-content: center;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.date-row .btn-secondary {
+    background: white;
+    border: 2px solid #e9ecef;
+    color: #6b7280;
+}
+
+.date-row .btn-secondary:hover {
+    background: #f8fafc;
+    border-color: #d1d5db;
+    color: #4b5563;
+}
+
+.date-row .btn-primary {
+    background: linear-gradient(135deg, #4A7B93 0%, #5a8ba3 100%);
+    border: none;
+    color: white;
+    box-shadow: 0 4px 12px rgba(74, 123, 147, 0.25);
+}
+
+.date-row .btn-primary:hover {
+    background: linear-gradient(135deg, #3d6a80 0%, #4d7890 100%);
+    box-shadow: 0 6px 16px rgba(74, 123, 147, 0.35);
+    transform: translateY(-1px);
 }
 
 @keyframes fadeInUp {
@@ -1515,11 +1588,199 @@ html, body {
 }
 
 .modal-timeline-section h4 {
-    margin-top: 0;
-    margin-bottom: 15px;
+    margin: 0;
     color: #2c3e50;
     font-size: 1.1rem;
-    text-align: center;
+}
+
+/* Timeline header with title and date selector */
+.timeline-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+/* Date selector for multi-day ranges - compact inline design */
+.timeline-date-selector {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.timeline-nav-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    color: #6c757d;
+}
+
+.timeline-nav-btn:hover:not(:disabled) {
+    background: #e9ecef;
+    color: #4A7B93;
+}
+
+.timeline-nav-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.3;
+}
+
+.timeline-nav-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Date button - clickable to open dropdown */
+.timeline-date-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: white;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.timeline-date-btn:hover {
+    background: #f8f9fa;
+    border-color: #4A7B93;
+    box-shadow: 0 2px 6px rgba(74, 123, 147, 0.15);
+}
+
+.timeline-date-btn.active {
+    background: #4A7B93;
+    border-color: #4A7B93;
+    box-shadow: 0 2px 8px rgba(74, 123, 147, 0.3);
+}
+
+.timeline-date-btn.active .timeline-current-date {
+    color: white;
+}
+
+.timeline-date-btn.active .timeline-date-range-info {
+    background: rgba(255,255,255,0.25);
+    color: white;
+}
+
+.timeline-date-btn.active .dropdown-arrow {
+    stroke: white;
+    transform: rotate(180deg);
+}
+
+.timeline-date-btn .dropdown-arrow {
+    transition: transform 0.2s ease;
+    stroke: #6c757d;
+}
+
+.timeline-current-date {
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 0.85rem;
+}
+
+.timeline-date-range-info {
+    font-size: 0.7rem;
+    color: white;
+    background: #4A7B93;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 500;
+}
+
+.timeline-date-btn.active .timeline-date-range-info {
+    background: rgba(255,255,255,0.2);
+}
+
+/* Date dropdown - fixed position overlay */
+.timeline-date-dropdown {
+    position: fixed;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    border: 1px solid #e0e0e0;
+    z-index: 10001;
+    display: none;
+    width: 220px;
+    overflow: hidden;
+}
+
+.timeline-date-dropdown.show {
+    display: block;
+    animation: timelineDropdownIn 0.15s ease;
+}
+
+@keyframes timelineDropdownIn {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.timeline-date-dropdown-list {
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 6px;
+}
+
+.timeline-date-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.12s ease;
+    margin-bottom: 2px;
+}
+
+.timeline-date-item:last-child {
+    margin-bottom: 0;
+}
+
+.timeline-date-item:hover {
+    background: #f3f4f6;
+}
+
+.timeline-date-item.selected {
+    background: #4A7B93;
+    color: white;
+}
+
+.timeline-date-item.selected:hover {
+    background: #3d6a7f;
+}
+
+.timeline-date-item .date-day-name {
+    font-size: 0.75rem;
+    opacity: 0.6;
+    min-width: 70px;
+}
+
+.timeline-date-item .date-full {
+    font-weight: 500;
+    font-size: 0.85rem;
+}
+
+.timeline-date-item.selected .date-day-name,
+.timeline-date-item.selected .date-full {
+    color: white;
+    opacity: 1;
 }
 
 .timeline-container {
@@ -1698,15 +1959,16 @@ html, body {
     }
 
     .custom-date-popup {
-        left: 0;
-        width: 300px;
-        max-height: 350px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 360px;
     }
 
     /* Table page specific - popup opens to the left */
     #custom-date-selector {
         left: auto;
         right: 0;
+        transform: none;
     }
 
     .popup-content {
@@ -1739,85 +2001,43 @@ html, body {
     }
 
     .custom-date-popup {
-        left: 0;
-        width: 280px;
-        max-height: 320px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 320px;
     }
 
     /* Table page specific - popup opens to the left */
     #custom-date-selector {
         left: auto;
         right: 0;
+        transform: none;
     }
 
     .popup-arrow {
-        left: 15px;
+        left: 50%;
+        transform: translateX(-50%);
     }
 
     #custom-date-selector .popup-arrow {
         left: auto;
-        right: 15px;
+        right: 20px;
+        transform: none;
     }
 
     .popup-content {
         padding: 0.8rem;
     }
-    
+
     .date-input {
         padding: 0.4rem 0.6rem;
         font-size: 0.8rem;
     }
-}
 
-.date-range-container {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-}
-
-.date-row {
-    display: flex;
-    align-items: center;
-    gap: 0.8rem;
-    height: 40px;
-}
-
-.date-label {
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: #333;
-    min-width: 70px;
-    text-align: left;
-}
-
-.date-input {
-    padding: 0.5rem 0.7rem;
-    border: 1px solid #e9ecef;
-    border-radius: 4px;
-    background: white;
-    color: #2c3e50;
-    font-size: 0.85rem;
-    font-family: inherit;
-    transition: all 0.2s ease;
-    width: 160px;
-    height: 36px;
-    box-sizing: border-box;
-}
-
-.date-input:focus {
-    outline: none;
-    border-color: #3B8FD1;
-    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
-}
-
-.date-row .btn {
-    height: 36px;
-    width: 85px;
-    white-space: nowrap;
-    text-align: center;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    .date-row .btn {
+        min-width: 70px;
+        padding: 0 10px;
+        font-size: 0.75rem;
+    }
 }
 
 /* Custom Turkish Calendar Styles */
@@ -1924,23 +2144,22 @@ html, body {
     min-height: 40px;
 }
 
-.calendar-day:hover:not(.disabled):not(.other-month) {
+.calendar-day:hover:not(.disabled):not(.other-month):not(.selected):not(.range-start):not(.range-end) {
     background: #f3f4f6;
     border-color: #d1d5db;
     transform: scale(1.05);
 }
 
 .calendar-day.other-month {
-    color: #d1d5db;
+    color: #9ca3af;
     cursor: default;
-    opacity: 0.35;
+    opacity: 0.6;
 }
 
 .calendar-day.disabled {
-    color: #e5e7eb;
+    color: #9ca3af;
     cursor: not-allowed;
-    text-decoration: line-through;
-    opacity: 0.25;
+    opacity: 0.5;
 }
 
 .calendar-day.disabled:hover {
@@ -1949,32 +2168,50 @@ html, body {
     transform: none;
 }
 
+/* Today indicator - just a dot when not selected */
 .calendar-day.today {
-    background: linear-gradient(135deg, #4A7B93 0%, #5a8ba3 100%);
-    color: white;
+    background: transparent;
+    color: #4A7B93;
     font-weight: 700;
-    border-color: #4A7B93;
-    box-shadow: 0 4px 12px rgba(74, 123, 147, 0.3);
     position: relative;
 }
 
+/* Dot indicator for today */
 .calendar-day.today::after {
     content: '';
     position: absolute;
     bottom: 4px;
     left: 50%;
     transform: translateX(-50%);
-    width: 4px;
-    height: 4px;
+    width: 5px;
+    height: 5px;
     border-radius: 50%;
-    background: white;
+    background: #4A7B93;
 }
 
 .calendar-day.today:hover {
-    background: linear-gradient(135deg, #3d6880 0%, #4d7890 100%);
-    border-color: #3d6880;
-    box-shadow: 0 6px 16px rgba(74, 123, 147, 0.4);
+    background: rgba(74, 123, 147, 0.1);
     transform: scale(1.05);
+}
+
+/* When today is also selected or part of range, use the selected/range styling */
+.calendar-day.today.selected,
+.calendar-day.today.range-start,
+.calendar-day.today.range-end {
+    background: linear-gradient(135deg, #4A7B93 0%, #5a8ba3 100%);
+    color: white;
+    box-shadow: 0 4px 14px rgba(74, 123, 147, 0.35);
+}
+
+.calendar-day.today.selected::after,
+.calendar-day.today.range-start::after,
+.calendar-day.today.range-end::after {
+    background: white;
+}
+
+.calendar-day.today.in-range {
+    background: rgba(74, 123, 147, 0.15);
+    color: #374151;
 }
 
 .calendar-day.selected {
@@ -1987,6 +2224,7 @@ html, body {
 
 .calendar-day.selected:hover {
     background: linear-gradient(135deg, #3d6880 0%, #4d7890 100%);
+    color: white;
     border-color: #3d6880;
     box-shadow: 0 6px 18px rgba(74, 123, 147, 0.45);
     transform: scale(1.05);
@@ -2017,6 +2255,7 @@ html, body {
 .calendar-day.range-start:hover,
 .calendar-day.range-end:hover {
     background: linear-gradient(135deg, #3d6880 0%, #4d7890 100%);
+    color: white;
     border-color: #3d6880;
     box-shadow: 0 6px 18px rgba(74, 123, 147, 0.45);
     transform: scale(1.05);
@@ -2025,14 +2264,14 @@ html, body {
 .date-input-custom {
     padding: 0.6rem 0.8rem;
     border: 2px solid #e9ecef;
-    border-radius: 6px;
+    border-radius: 8px;
     background: white;
     color: #2c3e50;
     font-size: 0.85rem;
     font-family: inherit;
     transition: all 0.2s ease;
-    width: 160px;
-    height: 36px;
+    width: 100%;
+    height: 38px;
     box-sizing: border-box;
     cursor: pointer;
     display: flex;
@@ -2194,6 +2433,11 @@ html, body {
     width: 16px;
     height: 16px;
     flex-shrink: 0;
+}
+
+.actions-dropdown-item.view:hover {
+    background: #f0fdf4;
+    color: #22c55e;
 }
 
 .actions-dropdown-item.edit:hover {

@@ -154,6 +154,27 @@
             </div>
         </div>
 
+        <!-- Delete Confirmation Modal -->
+        <div class="modal" id="delete-user-modal">
+            <div class="modal-content logout-modal-content">
+                <div class="modal-header">
+                    <h3>Çalışan Verisini Sil</h3>
+                </div>
+                <div class="modal-body">
+                    <p>
+                        <strong id="delete-user-name"></strong> adlı çalışanın tüm verilerini silmek istediğinize emin misiniz?
+                    </p>
+                    <p style="color: #dc3545; margin-top: 10px;">
+                        Bu işlem geri alınamaz ve tüm aktivite verileri silinecektir.
+                    </p>
+                    <div class="modal-actions">
+                        <button class="btn btn-secondary" id="delete-user-cancel">İptal Et</button>
+                        <button class="btn btn-danger" id="delete-user-confirm">Sil</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Edit Username Modal -->
         <div class="modal" id="edit-username-modal">
             <div class="modal-content edit-username-modal-content">
@@ -191,7 +212,6 @@
                 <div class="modal-header">
                     <h3 id="modal-user-name">Kullanıcı Detayları</h3>
                     <div class="modal-header-buttons">
-                        <button class="btn btn-secondary" id="modal-export-btn">CSV İndir</button>
                         <button class="modal-close">&times;</button>
                     </div>
                 </div>
@@ -215,9 +235,34 @@
                         </div>
                     </div>
 
-                    <!-- Activity Timeline (Only visible when day count = 1) -->
+                    <!-- Activity Timeline -->
                     <div class="modal-timeline-section" id="modal-timeline-section" style="display: none;">
-                        <h4>Günlük Aktivite Zaman Çizelgesi</h4>
+                        <div class="timeline-header">
+                            <h4>Günlük Aktivite Zaman Çizelgesi</h4>
+                            <!-- Date selector for multi-day ranges -->
+                            <div class="timeline-date-selector" id="timeline-date-selector" style="display: none;">
+                                <button class="timeline-nav-btn" id="timeline-prev-day" title="Önceki gün">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                        <path d="M15 18l-6-6 6-6"/>
+                                    </svg>
+                                </button>
+                                <button class="timeline-date-btn" id="timeline-date-btn" title="Tarih seçmek için tıklayın">
+                                    <span class="timeline-current-date" id="timeline-current-date">29 Kasım 2024</span>
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12" class="dropdown-arrow">
+                                        <path d="M6 9l6 6 6-6"/>
+                                    </svg>
+                                </button>
+                                <button class="timeline-nav-btn" id="timeline-next-day" title="Sonraki gün">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                        <path d="M9 18l6-6-6-6"/>
+                                    </svg>
+                                </button>
+                            </div>
+                            <!-- Dropdown positioned with fixed positioning -->
+                            <div class="timeline-date-dropdown" id="timeline-date-dropdown">
+                                <div class="timeline-date-dropdown-list" id="timeline-date-dropdown-list"></div>
+                            </div>
+                        </div>
                         <div class="timeline-container">
                             <div class="timeline-canvas-wrapper">
                                 <canvas id="timeline-canvas" width="1000" height="60"></canvas>

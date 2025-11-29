@@ -1,10 +1,29 @@
 // Turkish Calendar Modal Integration for Reports Page
 // This file adds the modal functionality with Turkish calendars
 
+// Track which calendar is currently open
+let activeCalendarType = null;
+
+// Track the current modal element to detect page navigation
+let currentModalElement = null;
+
 // Open report generation modal
 function openReportGenerationModal() {
     const modal = document.getElementById('report-generation-modal');
     if (!modal) return;
+
+    // Check if we navigated to a new page (modal element changed)
+    // This happens when user navigates away and comes back
+    if (currentModalElement !== modal) {
+        // Reset all flags since DOM elements have been recreated
+        window.reportDateHandlersAttached = false;
+        window.reportModalClickHandlerAttached = false;
+        window.reportCalendarScrollAttached = false;
+        window.reportStartCalendar = null;
+        window.reportEndCalendar = null;
+        activeCalendarType = null;
+        currentModalElement = modal;
+    }
 
     // Initialize calendars if not already done
     if (!window.reportStartCalendar) {
@@ -33,8 +52,68 @@ function openReportGenerationModal() {
         window.reportModalClickHandlerAttached = true;
     }
 
+    // Setup global click handler for closing calendar when clicking outside
+    // This is on document so it persists across page navigations
+    if (!window.reportCalendarClickOutsideAttached) {
+        document.addEventListener('click', handleCalendarClickOutside);
+        window.reportCalendarClickOutsideAttached = true;
+    }
+
+    // Setup scroll handler to close calendar when modal scrolls
+    if (!window.reportCalendarScrollAttached) {
+        // The scrollable element is .report-generation-modal (modal-content)
+        const modalContent = modal.querySelector('.report-generation-modal');
+        if (modalContent) {
+            modalContent.addEventListener('scroll', handleModalScroll);
+        }
+        window.reportCalendarScrollAttached = true;
+    }
+
     // Show modal
     modal.style.display = 'flex';
+}
+
+// Handle clicks outside the calendar to close it
+function handleCalendarClickOutside(e) {
+    // Only process if a calendar is actually open
+    if (activeCalendarType === null) {
+        return;
+    }
+
+    const startWrapper = document.getElementById('report-start-calendar-wrapper');
+    const endWrapper = document.getElementById('report-end-calendar-wrapper');
+    const startDisplay = document.getElementById('report-start-date-display');
+    const endDisplay = document.getElementById('report-end-date-display');
+
+    // Check if click is outside both calendars and their triggers
+    const clickedInsideStartCalendar = startWrapper && startWrapper.contains(e.target);
+    const clickedInsideEndCalendar = endWrapper && endWrapper.contains(e.target);
+    const clickedOnStartDisplay = startDisplay && startDisplay.contains(e.target);
+    const clickedOnEndDisplay = endDisplay && endDisplay.contains(e.target);
+
+    if (!clickedInsideStartCalendar && !clickedInsideEndCalendar &&
+        !clickedOnStartDisplay && !clickedOnEndDisplay) {
+        // Close any open calendar
+        hideAllCalendars();
+    }
+}
+
+// Handle modal body scroll - close calendars when scrolling
+function handleModalScroll() {
+    // Only close if a calendar is actually open
+    if (activeCalendarType !== null) {
+        hideAllCalendars();
+    }
+}
+
+// Hide all calendars
+function hideAllCalendars() {
+    const startWrapper = document.getElementById('report-start-calendar-wrapper');
+    const endWrapper = document.getElementById('report-end-calendar-wrapper');
+
+    if (startWrapper) startWrapper.style.display = 'none';
+    if (endWrapper) endWrapper.style.display = 'none';
+    activeCalendarType = null;
 }
 
 // Close report generation modal
@@ -44,11 +123,8 @@ function closeReportGenerationModal() {
         modal.style.display = 'none';
     }
 
-    // Hide calendar wrappers
-    const startWrapper = document.getElementById('report-start-calendar-wrapper');
-    const endWrapper = document.getElementById('report-end-calendar-wrapper');
-    if (startWrapper) startWrapper.style.display = 'none';
-    if (endWrapper) endWrapper.style.display = 'none';
+    // Hide all calendars and reset state
+    hideAllCalendars();
 }
 
 // Create Turkish calendars
@@ -61,7 +137,7 @@ function createReportCalendars() {
     window.reportStartCalendar = new TurkishCalendar('report-start-calendar', {
         type: 'range-start',
         minDate: oneYearAgo,
-        maxDate: today,
+        maxDate: window.reportEndDate || today, // Can't select start after end
         selectedDate: window.reportStartDate || new Date(),
         rangeStart: window.reportStartDate,
         rangeEnd: window.reportEndDate,
@@ -69,21 +145,23 @@ function createReportCalendars() {
             window.reportStartDate = date;
             updateDateDisplay('start', date);
             updateDateRangeSummary();
-            // Update the end calendar's range
+            // Update the end calendar - use proper methods to update options
             if (window.reportEndCalendar) {
-                window.reportEndCalendar.rangeStart = date;
-                window.reportEndCalendar.render();
+                // Set minDate to selected start date so end can't be before start
+                window.reportEndCalendar.setMinDate(date);
+                window.reportEndCalendar.setRangeStart(date);
             }
-            // Hide calendar wrapper after selection
-            const wrapper = document.getElementById('report-start-calendar-wrapper');
-            if (wrapper) wrapper.style.display = 'none';
+            // Update this calendar's range too
+            window.reportStartCalendar.setRangeStart(date);
+            // Hide calendar wrapper after selection and reset state
+            hideAllCalendars();
         }
     });
 
     // Create end date calendar
     window.reportEndCalendar = new TurkishCalendar('report-end-calendar', {
         type: 'range-end',
-        minDate: oneYearAgo,
+        minDate: window.reportStartDate || oneYearAgo, // Can't select end before start
         maxDate: today,
         selectedDate: window.reportEndDate || new Date(),
         rangeStart: window.reportStartDate,
@@ -92,21 +170,22 @@ function createReportCalendars() {
             window.reportEndDate = date;
             updateDateDisplay('end', date);
             updateDateRangeSummary();
-            // Update the start calendar's range
+            // Update the start calendar - use proper methods to update options
             if (window.reportStartCalendar) {
-                window.reportStartCalendar.rangeEnd = date;
-                window.reportStartCalendar.render();
+                // Set maxDate to selected end date so start can't be after end
+                window.reportStartCalendar.setMaxDate(date);
+                window.reportStartCalendar.setRangeEnd(date);
             }
-            // Hide calendar wrapper after selection
-            const wrapper = document.getElementById('report-end-calendar-wrapper');
-            if (wrapper) wrapper.style.display = 'none';
+            // Update this calendar's range too
+            window.reportEndCalendar.setRangeEnd(date);
+            // Hide calendar wrapper after selection and reset state
+            hideAllCalendars();
         }
     });
 }
 
 // Toggle calendar visibility
 function toggleCalendar(type) {
-
     // Make sure calendars are created first
     if (!window.reportStartCalendar || !window.reportEndCalendar) {
         createReportCalendars();
@@ -120,64 +199,43 @@ function toggleCalendar(type) {
         return;
     }
 
-    if (type === 'start') {
-        // Check visibility using computed style for reliability
-        const computedStyle = window.getComputedStyle(startWrapper);
-        const isVisible = computedStyle.display === 'block';
+    // Use our tracked state instead of computed style to avoid timing issues
+    const isCurrentlyOpen = activeCalendarType === type;
 
-        if (isVisible) {
-            // Hide if already visible
-            startWrapper.style.display = 'none';
-        } else {
-            // Hide the other calendar first
-            endWrapper.style.display = 'none';
-
-            // Update calendar properties before showing
-            if (window.reportStartCalendar) {
-                window.reportStartCalendar.selectedDate = window.reportStartDate;
-                window.reportStartCalendar.rangeStart = window.reportStartDate;
-                window.reportStartCalendar.rangeEnd = window.reportEndDate;
-                window.reportStartCalendar.render();
-            }
-
-            // Show the calendar (must be visible for positioning calculations)
-            startWrapper.style.display = 'block';
-
-            // Position the calendar wrapper using fixed positioning
-            // Use setTimeout to ensure the calendar is rendered before positioning
-            setTimeout(() => {
-                positionCalendarWrapper('start');
-            }, 10);
-        }
+    if (isCurrentlyOpen) {
+        // Hide if already visible
+        hideAllCalendars();
     } else {
-        // Check visibility using computed style for reliability
-        const computedStyle = window.getComputedStyle(endWrapper);
-        const isVisible = computedStyle.display === 'block';
+        // Hide any open calendar first
+        hideAllCalendars();
 
-        if (isVisible) {
-            // Hide if already visible
-            endWrapper.style.display = 'none';
-        } else {
-            // Hide the other calendar first
-            startWrapper.style.display = 'none';
+        const wrapper = type === 'start' ? startWrapper : endWrapper;
+        const calendar = type === 'start' ? window.reportStartCalendar : window.reportEndCalendar;
+        const selectedDate = type === 'start' ? window.reportStartDate : window.reportEndDate;
 
-            // Update calendar properties before showing
-            if (window.reportEndCalendar) {
-                window.reportEndCalendar.selectedDate = window.reportEndDate;
-                window.reportEndCalendar.rangeStart = window.reportStartDate;
-                window.reportEndCalendar.rangeEnd = window.reportEndDate;
-                window.reportEndCalendar.render();
+        // Update calendar properties before showing using proper methods
+        if (calendar) {
+            calendar.selectedDate = selectedDate;
+            // Use updateRange to set both start and end without multiple renders
+            calendar.updateRange(window.reportStartDate, window.reportEndDate, false);
+            // Update min/max dates to prevent invalid selections
+            if (type === 'start' && window.reportEndDate) {
+                calendar.options.maxDate = window.reportEndDate;
+            } else if (type === 'end' && window.reportStartDate) {
+                calendar.options.minDate = window.reportStartDate;
             }
-
-            // Show the calendar (must be visible for positioning calculations)
-            endWrapper.style.display = 'block';
-
-            // Position the calendar wrapper using fixed positioning
-            // Use setTimeout to ensure the calendar is rendered before positioning
-            setTimeout(() => {
-                positionCalendarWrapper('end');
-            }, 10);
+            calendar.render();
         }
+
+        // Show the calendar
+        wrapper.style.display = 'block';
+        activeCalendarType = type;
+
+        // Position the calendar wrapper using fixed positioning
+        // Use requestAnimationFrame to ensure the calendar is rendered before positioning
+        requestAnimationFrame(() => {
+            positionCalendarWrapper(type);
+        });
     }
 }
 

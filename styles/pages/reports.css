@@ -245,6 +245,52 @@
     border-radius: 8px;
 }
 
+.teams-search-box {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+    align-items: center;
+}
+
+.teams-search-box .users-search-input {
+    flex: 1;
+}
+
+.teams-list {
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 10px;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    margin-bottom: 10px;
+}
+
+.team-checkbox-item {
+    margin-bottom: 5px;
+}
+
+.team-member-badge {
+    font-size: 12px;
+    color: #6b7280;
+    font-weight: normal;
+}
+
+.team-members-info {
+    margin-top: 12px;
+    padding: 12px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+}
+
+.team-members-header {
+    font-weight: 600;
+    color: #4A7B93;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
 .team-select {
     width: 100%;
     padding: 10px 12px;
@@ -320,7 +366,6 @@
     height: 18px;
     cursor: pointer;
     accent-color: #4A7B93;
-    pointer-events: none; /* Let the parent handle clicks */
 }
 
 .checkbox-option label {
@@ -393,14 +438,18 @@
     box-shadow: 0 0 0 3px rgba(74, 123, 147, 0.15);
 }
 
-.checkbox-option span {
+.checkbox-option span,
+.checkbox-option label {
     font-size: 14px;
     color: #333;
     font-weight: 500;
     user-select: none;
+    cursor: pointer;
+    flex: 1;
 }
 
-.checkbox-option input[type="checkbox"]:checked ~ span {
+.checkbox-option input[type="checkbox"]:checked ~ span,
+.checkbox-option input[type="checkbox"]:checked ~ label {
     color: #4A7B93;
 }
 
@@ -794,12 +843,13 @@
     position: relative;
 }
 
-.date-label {
+.date-selector-item .date-label {
     display: block;
     font-size: 13px;
     font-weight: 500;
     color: #6b7280;
     margin-bottom: 8px;
+    white-space: nowrap;
 }
 
 .date-display {
